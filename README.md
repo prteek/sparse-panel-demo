@@ -7,6 +7,7 @@ An interactive Streamlit demo of the [Beijing air quality post](https://prteek.g
 - `sparse_panel/data.py` — UCI download, daily means, station labels and label-dependent thinning
 - `sparse_panel/model.py` — the joint two-target network, copied from the post
 - `sparse_panel/baselines.py` — 31-day MA benchmark and the ±15-day mean with area fallback
+- `hf/` — HF dataset card, Docker Space files (`space/`) and `publish.sh` to upload both
 - `outputs/` — precomputed tables (git-ignored; published as the HF dataset)
 - `data/` — raw UCI data (git-ignored; downloaded by `precompute.py`)
 - `summary.md` — current state

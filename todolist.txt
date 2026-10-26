@@ -1,6 +1,5 @@
 Publish:
-  ☐ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (CC BY 4.0)
-  ☐ Create the HF Space (Streamlit) and deploy app.py
+  ☐ Host the app: HF Docker/Gradio Spaces need PRO (402 on create); choose Streamlit Community Cloud, HF PRO, or a static stlite Space
   ☐ Link the Space from the blog post and the alphaXiv version
 
 Backlog:
@@ -9,6 +8,8 @@ Backlog:
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (public, CC BY 4.0) @done(26-10-26)
+  ✔ Build and test the Docker Space image locally (app loads the HF dataset in the container) @done(26-10-26)
   ✔ Create public GitHub repo prteek/sparse-panel-demo and push (github.com/prteek/sparse-panel-demo) @done(26-10-26)
   ✔ Smoke-test and visually check the app (all views render; fixed gap shading, truth colour, legend overlap) @done(26-10-26)
   ✔ Write app.py (group view, error table by day type, error vs thinning chart) @done(26-10-26)
