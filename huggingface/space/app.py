@@ -1,7 +1,8 @@
 """Gradio app: compare estimators of a smooth level on sparse, gappy air-quality data.
 
-Reads the tables written by precompute.py: from DATA_DIR if set (or ./outputs if present), otherwise from the
-Hugging Face dataset HF_DATASET.
+Reads the tables written by huggingface/dataset/precompute.py: from DATA_DIR if set, else from an outputs/ folder
+next to the app (on the Space) or at the repo root (run from the repo), otherwise from the Hugging Face dataset
+HF_DATASET.
 """
 import json
 import os
@@ -36,10 +37,11 @@ TRUTH_COLOR = "#2ca02c"  # visible on light and dark themes
 
 
 def load() -> dict:
-    local = Path(os.environ.get("DATA_DIR", Path(__file__).parent / "outputs"))
-    if local.exists():
-        root = local
-    else:
+    here = Path(__file__).resolve().parent
+    candidates = ([Path(os.environ["DATA_DIR"])] if "DATA_DIR" in os.environ
+                  else [here / "outputs", here.parent.parent / "outputs"])
+    root = next((c for c in candidates if c.exists()), None)
+    if root is None:
         from huggingface_hub import snapshot_download
 
         root = Path(snapshot_download(HF_DATASET, repo_type="dataset", allow_patterns=["*.parquet", "meta.json"]))

@@ -1,22 +1,39 @@
 [project]
 name = "sparse-panel-demo"
 version = "0.1.0"
-description = "Interactive demo: estimating smooth levels from sparse, gappy panels (Beijing air quality)"
+description = "Smooth levels from sparse, gappy panels (Beijing air quality): paper, shared library and Hugging Face artefacts"
 requires-python = ">=3.13"
+# the shared library (sparse_panel): data preparation, model, baselines and CV runs
 dependencies = [
-    "gradio>=6.30.0",
-    "huggingface-hub>=0.30",
-    "pandas>=2.2",
-    "plotly>=5.24",
-    "pyarrow>=17",
-]
-
-[dependency-groups]
-# only needed to refit the scenarios (precompute.py), not to run the app
-precompute = [
     "numpy>=2.0",
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "tabulate>=0.9",
     "torch>=2.5",
 ]
 
+[dependency-groups]
+# the Gradio Space (huggingface/space)
+app = [
+    "gradio>=6.30.0",
+    "huggingface-hub>=0.30",
+    "plotly>=5.24",
+]
+# rendering the Quarto paper (paper/)
+paper = [
+    "jupyter>=1.1",
+    "matplotlib>=3.9",
+    "pyyaml>=6.0",
+    "seaborn>=0.13",
+]
+dev = ["pytest>=8"]
+
 [tool.uv]
-default-groups = ["precompute"]
+default-groups = ["app", "paper", "dev"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sparse_panel"]

@@ -13,19 +13,20 @@ Writes to outputs/:
   metrics.parquet      lam, label, pollutant, estimator, day_type, days, error, bias
                        (day_type: all / observed / unobserved / gap; for 'dropped series' pollutant is 'dropped')
   meta.json            settings used
+
+Run: uv run python huggingface/dataset/precompute.py
 """
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
 from sparse_panel.baselines import KEY, moving_average, smooth_truth
-from sparse_panel.data import AREA, SEED, assign_labels, daily, download, load_hourly, thin
+from sparse_panel.data import AREA, SEED, assign_labels, daily, download, load_hourly, thin_by_label
 from sparse_panel.model import TARGETS, Encoding, fit, predict
+from sparse_panel.paths import OUTPUTS
 
-HERE = Path(__file__).parent
 LAMBDAS = [0.5, 1.2, 3.0]
 # Settings chosen by look-ahead CV in the paper
 CFG = dict(rough=1e5, spacing=30, lr=5e-3, hidden=64, weight_decay=1e-4, station_l2=1e-3, schedule=1000, seed=0)
@@ -57,17 +58,17 @@ def score(pred: pd.DataFrame, truth: pd.DataFrame, labels: pd.DataFrame) -> pd.D
 
 def main():
     torch.set_num_threads(6)
-    out = HERE / "outputs"
+    out = OUTPUTS
     out.mkdir(exist_ok=True)
-    hourly = load_hourly(download(HERE / "data"))
+    hourly = load_hourly(download())
     full = daily(hourly)
-    truth = smooth_truth(full)
+    truth = smooth_truth(full).drop(columns="n")
     labels = assign_labels(SEED)
     print(labels.to_string(index=False))
 
     readings, preds, gaps = [], [], None
     for lam in LAMBDAS:
-        sparse, gaps = thin(hourly, lam, labels, SEED)
+        sparse, gaps = thin_by_label(hourly, lam, labels, SEED)
         enc = Encoding.fit(sparse, end=full["date"].max())
         w, grid = enc.wide(sparse), enc.grid()
         cells = grid.merge(pd.DataFrame({"pollutant": TARGETS}), how="cross")

@@ -4,3 +4,10 @@ outputs/
 __pycache__/
 *.pyc
 .DS_Store
+
+# paper build
+paper/_output/
+paper/_freeze/
+paper/.quarto/
+paper/*_files/
+**/*.quarto_ipynb

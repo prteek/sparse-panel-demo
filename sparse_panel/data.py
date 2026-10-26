@@ -1,16 +1,19 @@
-"""Beijing multi-site air quality data: download, daily means, station labels and label-dependent thinning.
+"""Beijing multi-site air quality data: download, daily means, and the two ways of thinning it to sparse readings.
 
-Every station gets one label, which decides how its readings are thinned relative to the global setting `lam`
-(Poisson mean of hours kept per station-day and pollutant):
+- Paper (`prepare_paper_data`, `thin_uniform`): every station and pollutant keeps a Poisson(PAPER_LAMBDA) random subset
+  of its valid hours per day, plus PAPER_GAP_BLOCKS runs of 20-60 empty days. Writes data/daily_full.parquet,
+  data/daily_sparse.parquet and data/gaps.parquet, which the paper and its CV scripts read.
+- Demo (`assign_labels`, `thin_by_label`): every station gets one label, which decides how its readings are thinned
+  relative to the global setting `lam` (Poisson mean of hours kept per station-day and pollutant):
 
-- regular:        Poisson(lam) hours, plus GAP_BLOCKS gap blocks of 20-60 days per pollutant
-- sparse:         Poisson(SPARSE_FACTOR * lam) hours, same gaps as regular
-- very sparse:    as regular, then only VERY_SPARSE_KEEP of the observed days kept
-- long gap:       as regular, but the gap blocks are 90-120 days
-- dropped series: one pollutant removed entirely; the other is treated as regular
+  - regular:        Poisson(lam) hours, plus GAP_BLOCKS gap blocks of 20-60 days per pollutant
+  - sparse:         Poisson(SPARSE_FACTOR * lam) hours, same gaps as regular
+  - very sparse:    as regular, then only VERY_SPARSE_KEEP of the observed days kept
+  - long gap:       as regular, but the gap blocks are 90-120 days
+  - dropped series: one pollutant removed entirely; the other is treated as regular
 
-All random draws are fixed per cell (seeded independently of `lam`), so scenarios differ only by `lam`:
-a higher `lam` keeps a superset of the hours a lower one keeps, and gaps sit in the same place.
+  All random draws are fixed per cell (seeded independently of `lam`), so scenarios differ only by `lam`:
+  a higher `lam` keeps a superset of the hours a lower one keeps, and gaps sit in the same place.
 """
 import glob
 import urllib.request
@@ -20,27 +23,24 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from sparse_panel.paths import DATA
+
 URL = "https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip"
+CSV_DIR = "PRSA_Data_20130301-20170228"
 POLLUTANTS = ["PM2.5", "PM10"]
+SEED = 0
 
 # Urban core vs suburban monitoring sites (the "area" level the network borrows from)
 AREA = {"Dongsi": "urban", "Tiantan": "urban", "Guanyuan": "urban", "Wanshouxigong": "urban", "Nongzhanguan": "urban",
         "Gucheng": "urban", "Aotizhongxin": "urban", "Wanliu": "urban",
         "Changping": "suburban", "Dingling": "suburban", "Huairou": "suburban", "Shunyi": "suburban"}
 
-LABELS = ["regular", "sparse", "very sparse", "long gap", "dropped series"]
-DEGRADED = LABELS[1:]  # one urban and one suburban station each; the remaining urban stations are regular
-SPARSE_FACTOR = 0.4
-VERY_SPARSE_KEEP = 0.15
-GAP_BLOCKS = 2
-GAP_DAYS = {"long gap": (90, 120)}
-DEFAULT_GAP_DAYS = (20, 60)
-SEED = 0
 
+# ---- shared: download and daily means -------------------------------------------------------------------------------
 
-def download(data_dir: Path) -> Path:
+def download(data_dir: Path = DATA) -> Path:
     """Fetch and unpack the UCI archive once; returns the folder of per-station hourly CSVs."""
-    out = data_dir / "PRSA_Data_20130301-20170228"
+    out = data_dir / CSV_DIR
     if out.exists():
         return out
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -53,8 +53,13 @@ def download(data_dir: Path) -> Path:
     return out
 
 
-def load_hourly(csv_dir: Path) -> pd.DataFrame:
-    df = pd.concat([pd.read_csv(f) for f in sorted(glob.glob(str(csv_dir / "*.csv")))], ignore_index=True)
+def load_hourly(csv_dir: Path, station_order=None) -> pd.DataFrame:
+    """Hourly readings of all stations, stacked in `station_order` (default: alphabetical)."""
+    files = sorted(glob.glob(str(csv_dir / "*.csv")))
+    if station_order is not None:
+        by_station = {Path(f).name.split("_")[2]: f for f in files}
+        files = [by_station[s] for s in station_order]
+    df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
     df["date"] = pd.to_datetime(df[["year", "month", "day"]])
     return df[["station", "date", "hour"] + POLLUTANTS]
 
@@ -64,6 +69,64 @@ def daily(hourly: pd.DataFrame) -> pd.DataFrame:
     long = hourly.melt(id_vars=["station", "date", "hour"], value_vars=POLLUTANTS, var_name="pollutant").dropna()
     out = long.groupby(["station", "date", "pollutant"])["value"].agg(value="mean", n="count").reset_index()
     return out.assign(area=out["station"].map(AREA))
+
+
+# ---- paper: uniform thinning ----------------------------------------------------------------------------------------
+
+PAPER_LAMBDA = 1.2
+PAPER_GAP_BLOCKS, PAPER_GAP_MIN, PAPER_GAP_MAX = 2, 20, 60
+# The order the station files were stacked in when the paper's sparse data was drawn (the original code took
+# glob's filesystem order). The shuffle below depends on it, so it is pinned to reproduce the paper exactly.
+PAPER_STATION_ORDER = ["Gucheng", "Huairou", "Tiantan", "Changping", "Guanyuan", "Nongzhanguan", "Wanliu", "Dongsi",
+                       "Wanshouxigong", "Aotizhongxin", "Dingling", "Shunyi"]
+
+
+def thin_uniform(hourly: pd.DataFrame, rng):
+    """Keep a Poisson(PAPER_LAMBDA) random subset of valid hours per station x day x pollutant, then cut gap blocks."""
+    long = hourly.melt(id_vars=["station", "date", "hour"], value_vars=POLLUTANTS, var_name="pollutant").dropna()
+    long = long.sample(frac=1, random_state=SEED)  # random order within each cell
+    keys = long[["station", "date", "pollutant"]].drop_duplicates()
+    keys["k"] = rng.poisson(PAPER_LAMBDA, len(keys))
+    long = long.merge(keys, on=["station", "date", "pollutant"])
+    long["rank"] = long.groupby(["station", "date", "pollutant"]).cumcount()
+    kept = long[long["rank"] < long["k"]]
+
+    days = pd.date_range(hourly["date"].min(), hourly["date"].max())
+    gaps = []
+    for st in sorted(hourly["station"].unique()):
+        for pol in POLLUTANTS:
+            for _ in range(PAPER_GAP_BLOCKS):
+                length = rng.integers(PAPER_GAP_MIN, PAPER_GAP_MAX + 1)
+                start = rng.integers(0, len(days) - length)
+                gaps.append(pd.DataFrame({"station": st, "pollutant": pol, "date": days[start:start + length]}))
+    gaps = pd.concat(gaps).drop_duplicates().assign(in_gap=True)
+    kept = kept.merge(gaps, on=["station", "date", "pollutant"], how="left")
+    kept = kept[kept["in_gap"].isna()]
+    out = kept.groupby(["station", "date", "pollutant"])["value"].agg(value="mean", n="count").reset_index()
+    return out.assign(area=out["station"].map(AREA)), gaps.drop(columns="in_gap")
+
+
+def prepare_paper_data(data_dir: Path = DATA, force: bool = False) -> None:
+    """Write daily_full, daily_sparse and gaps parquet files for the paper (skipped if they exist)."""
+    if not force and (data_dir / "daily_sparse.parquet").exists():
+        return
+    hourly = load_hourly(download(data_dir), station_order=PAPER_STATION_ORDER)
+    full = daily(hourly)
+    sparse, gaps = thin_uniform(hourly, np.random.default_rng(SEED))
+    full.to_parquet(data_dir / "daily_full.parquet", index=False)
+    sparse.to_parquet(data_dir / "daily_sparse.parquet", index=False)
+    gaps.to_parquet(data_dir / "gaps.parquet", index=False)
+
+
+# ---- demo: label-dependent thinning ---------------------------------------------------------------------------------
+
+LABELS = ["regular", "sparse", "very sparse", "long gap", "dropped series"]
+DEGRADED = LABELS[1:]  # one urban and one suburban station each; the remaining urban stations are regular
+SPARSE_FACTOR = 0.4
+VERY_SPARSE_KEEP = 0.15
+GAP_BLOCKS = 2
+GAP_DAYS = {"long gap": (90, 120)}
+DEFAULT_GAP_DAYS = (20, 60)
 
 
 def assign_labels(seed: int = SEED) -> pd.DataFrame:
@@ -112,7 +175,7 @@ def gap_blocks(stations, days: pd.DatetimeIndex, labels: pd.DataFrame, seed: int
     return pd.concat(out).drop_duplicates(ignore_index=True)
 
 
-def thin(hourly: pd.DataFrame, lam: float, labels: pd.DataFrame, seed: int = SEED):
+def thin_by_label(hourly: pd.DataFrame, lam: float, labels: pd.DataFrame, seed: int = SEED):
     """Sparse daily readings for one global thinning level. Returns (sparse, gaps)."""
     long = hourly.melt(id_vars=["station", "date", "hour"], value_vars=POLLUTANTS, var_name="pollutant").dropna()
     # fixed random order of hours within each cell
@@ -139,3 +202,9 @@ def thin(hourly: pd.DataFrame, lam: float, labels: pd.DataFrame, seed: int = SEE
     kept = kept[kept["rank"] < kept["k"]]
     out = kept.groupby(["station", "date", "pollutant"])["value"].agg(value="mean", n="count").reset_index()
     return out.assign(area=out["station"].map(AREA)), gaps
+
+
+if __name__ == "__main__":
+    prepare_paper_data(force=True)
+    sparse = pd.read_parquet(DATA / "daily_sparse.parquet")
+    print(f"wrote paper data to {DATA}: {len(sparse):,} sparse station-day-pollutant readings")

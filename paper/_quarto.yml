@@ -1,0 +1,41 @@
+# The paper as a standalone Quarto project: `quarto render paper` writes paper/_output/<output-file>.pdf for alphaXiv.
+# Code cells import the shared sparse_panel package, so render with the repo's environment
+# (QUARTO_PYTHON=.venv/bin/python).
+project:
+  type: default
+  output-dir: _output
+  render:
+    - index.qmd  # notes/ are working notes, not pages
+
+execute:
+  freeze: auto
+
+format:
+  pdf:
+    output-file: pm25-pm10-station-time
+    papersize: a4
+    fontsize: 11pt
+    geometry:
+      - margin=2.5cm
+    number-sections: true
+    colorlinks: true
+    reference-section-title: References
+    fig-pos: "htbp"
+    fig-format: png  # vector PDFs of dense scatter plots run to tens of MB
+    fig-dpi: 300
+    code-block-bg: "#f6f6f6"
+    monofont: Menlo  # covers Greek and symbols printed in code output
+    monofontoptions:
+      - Scale=0.82
+    filters:
+      - _wide-tables.lua
+    include-in-header:
+      text: |
+        \usepackage{adjustbox}
+        % wrap long lines in code and console output instead of running past the margin
+        \usepackage{fvextra}
+        \AtBeginDocument{%
+          \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}%
+          \RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere}}
+        % fit wide tables to the page
+        \AtBeginEnvironment{longtable}{\footnotesize\setlength{\tabcolsep}{3pt}}
