@@ -7,5 +7,5 @@ updated: 2026-10-26
 - **Precompute**: 9 network fits in ~30 s; outputs 3.6 MB (`predictions.parquet` 3.1 MB).
 - **At the post's thinning (λ = 1.2)**, mean absolute log error vs the 31-day MA, joint / single-target / ±15-day mean: regular 0.152 / 0.145 / 0.162, sparse 0.182 / 0.179 / 0.243, very sparse 0.191 / 0.187 / 0.460, long gap 0.151 / 0.143 / 0.171, dropped series 0.173 / 0.190 / 0.148.
 - **Dropped series differs from the post**: the ±15-day mean (area fallback) beats the joint network (0.148 vs 0.173); in the post the joint model won (0.144 vs 0.156). Not yet investigated.
-- **Not yet published**: GitHub repo, HF dataset and HF Space are pending (see `todolist.txt`).
+- **Code is on GitHub**: github.com/prteek/sparse-panel-demo (public). HF dataset and Space are pending (see `todolist.txt`).
 - **GAM**: not included; in the backlog.

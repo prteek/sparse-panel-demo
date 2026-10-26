@@ -1,5 +1,4 @@
 Publish:
-  ☐ Create public GitHub repo prteek/sparse-panel-demo and push
   ☐ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (CC BY 4.0)
   ☐ Create the HF Space (Streamlit) and deploy app.py
   ☐ Link the Space from the blog post and the alphaXiv version
@@ -10,6 +9,7 @@ Backlog:
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ Create public GitHub repo prteek/sparse-panel-demo and push (github.com/prteek/sparse-panel-demo) @done(26-10-26)
   ✔ Smoke-test and visually check the app (all views render; fixed gap shading, truth colour, legend overlap) @done(26-10-26)
   ✔ Write app.py (group view, error table by day type, error vs thinning chart) @done(26-10-26)
   ✔ Precompute 3 thinning levels (9 fits in ~30 s, 3.6 MB of outputs) @done(26-10-26)
