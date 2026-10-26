@@ -7,6 +7,7 @@ Backlog:
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ Publish model code and training recipe as HF model repo prteek/sparse-panel-demo (no weights; public, CC BY 4.0; hf/model, publish.sh) @done(26-10-26)
   ✔ Switch the app to Gradio and deploy the Space (huggingface.co/spaces/prteek/sparse-panel-demo, RUNNING on cpu-basic) @done(26-10-26 14:41)
   ✔ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (public, CC BY 4.0) @done(26-10-26)
   ✔ Build and test the Docker Space image locally (app loads the HF dataset in the container) @done(26-10-26)
