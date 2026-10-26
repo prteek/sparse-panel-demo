@@ -25,7 +25,7 @@ configs:
 
 # Sparse panel demo (Beijing air quality)
 
-Precomputed scenarios behind the [sparse-panel-demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo) (code: [GitHub](https://github.com/prteek/sparse-panel-demo)), which accompanies the paper [PM2.5, PM10 ~ Station + Time, Analysis](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing) on alphaXiv.
+Precomputed scenarios behind the [sparse-panel-demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo) (code: [GitHub](https://github.com/prteek/sparse-panel-modelling)), which accompanies the paper [PM2.5, PM10 ~ Station + Time, Analysis](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing) on alphaXiv.
 
 Daily PM2.5 and PM10 at 12 Beijing monitoring stations (March 2013 – February 2017) are thinned to a few hourly readings a day, with gaps, and three estimators try to recover the slow underlying level:
 

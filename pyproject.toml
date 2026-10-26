@@ -1,5 +1,5 @@
 [project]
-name = "sparse-panel-demo"
+name = "sparse-panel-modelling"
 version = "0.1.0"
 description = "Smooth levels from sparse, gappy panels (Beijing air quality): paper, shared library and Hugging Face artefacts"
 requires-python = ">=3.13"

@@ -1,4 +1,4 @@
-# sparse-panel-demo
+# sparse-panel-modelling
 
 Smooth levels from sparse, gappy panels, on hourly PM2.5 and PM10 from 12 Beijing stations. This repo holds
 everything for the paper [PM2.5, PM10 ~ Station + Time, Analysis](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing)

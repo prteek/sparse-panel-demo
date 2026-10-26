@@ -3,7 +3,6 @@ Publish:
 
 Migration:
   ☐ Delete posts/beijing_air_quality from regression_room once every post has its own repo (keep regression_room until the last)
-  ☐ Decide whether to rename this repo now that it holds the paper too (HF repo names are linked from alphaXiv)
 
 Backlog:
   ☐ Add the GAM as a fourth estimator: rebuild the mgcv scripts (area curves + station factor-smooth deviations, hand-picked k/4) and add them to precompute.py (needs R offline only)
@@ -11,6 +10,7 @@ Backlog:
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ Rename the GitHub repo to prteek/sparse-panel-modelling (old URL redirects); Hugging Face repos keep sparse-panel-demo @done(26-10-26)
   ✔ CI workflows publishing the Space, model and dataset card to Hugging Face on push to main @done(26-10-26)
   ✔ Move the paper and its code in: shared sparse_panel library, paper/ renders the PDF, results reproduced exactly @done(26-10-26)
   ✔ Link the Space from the alphaXiv paper (shown under the abstract) @done(26-10-26)
@@ -18,7 +18,7 @@ Archive:
   ✔ Switch the app to Gradio and deploy the Space (huggingface.co/spaces/prteek/sparse-panel-demo, RUNNING on cpu-basic) @done(26-10-26 14:41)
   ✔ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (public, CC BY 4.0) @done(26-10-26)
   ✔ Build and test the Docker Space image locally (app loads the HF dataset in the container) @done(26-10-26)
-  ✔ Create public GitHub repo prteek/sparse-panel-demo and push (github.com/prteek/sparse-panel-demo) @done(26-10-26)
+  ✔ Create public GitHub repo prteek/sparse-panel-demo and push (since renamed: github.com/prteek/sparse-panel-modelling) @done(26-10-26)
   ✔ Smoke-test and visually check the app (all views render; fixed gap shading, truth colour, legend overlap) @done(26-10-26)
   ✔ Write app.py (group view, error table by day type, error vs thinning chart) @done(26-10-26)
   ✔ Precompute 3 thinning levels (9 fits in ~30 s, 3.6 MB of outputs) @done(26-10-26)

@@ -2905,7 +2905,7 @@ wheels = [
 ]
 
 [[package]]
-name = "sparse-panel-demo"
+name = "sparse-panel-modelling"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

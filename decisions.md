@@ -1,5 +1,5 @@
 ---
-title: sparse-panel-demo decisions
+title: sparse-panel-modelling decisions
 updated: 2026-10-26
 ---
 
