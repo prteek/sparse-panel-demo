@@ -10,7 +10,10 @@ from pathlib import Path
 import gradio as gr
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.io as pio
 from plotly.subplots import make_subplots
+
+pio.templates.default = "ggplot2"
 
 HF_DATASET = "prteek/sparse-panel-demo"
 POST_URL = "https://prteek.github.io/regression_room/posts/beijing_air_quality/"
