@@ -27,7 +27,7 @@ from sparse_panel.model import TARGETS, Encoding, fit, predict
 
 HERE = Path(__file__).parent
 LAMBDAS = [0.5, 1.2, 3.0]
-# Settings chosen by look-ahead CV in the post (posts/beijing_air_quality, cv.py / evaluate.py)
+# Settings chosen by look-ahead CV in the paper
 CFG = dict(rough=1e5, spacing=30, lr=5e-3, hidden=64, weight_decay=1e-4, station_l2=1e-3, schedule=1000, seed=0)
 STEPS = 100
 

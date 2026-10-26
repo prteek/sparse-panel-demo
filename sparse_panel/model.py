@@ -1,6 +1,7 @@
 """Joint two-target network for a smooth 'prevailing' pollution level per station and day.
 
-Copied from the regression_room post (posts/beijing_air_quality/model.py):
+Copied from the code behind the paper "PM2.5, PM10 ~ Station + Time, Analysis"
+(www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing):
 - one row per station x day with up to two targets (log PM2.5, log PM10); a missing target is masked, not dropped;
 - location = area embedding + small station offset (station falls back to its area when data is thin);
 - time enters only through fixed Gaussian bumps, so the level is a smooth function of time;

@@ -17,7 +17,7 @@ pio.templates.default = "ggplot2"
 
 HF_DATASET = "prteek/sparse-panel-demo"
 PAPER_URL = "https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing"
-LAMBDA_NAMES = {0.5: "Sparse: ~0.5 hours a day", 1.2: "As in the post: ~1.2 hours a day", 3.0: "Rich: ~3 hours a day"}
+LAMBDA_NAMES = {0.5: "Sparse: ~0.5 hours a day", 1.2: "As in the paper: ~1.2 hours a day", 3.0: "Rich: ~3 hours a day"}
 LABEL_NOTES = {
     "regular": "Thinned at the global setting, with two 20–60 day gaps per pollutant.",
     "sparse": "Thinned to 40% of the global setting's hours.",

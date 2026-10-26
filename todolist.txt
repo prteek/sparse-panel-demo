@@ -1,12 +1,12 @@
 Publish:
-  ☐ Link the Space from the blog post and the alphaXiv version
 
 Backlog:
   ☐ Add the GAM as a fourth estimator: rebuild the mgcv scripts (area curves + station factor-smooth deviations, hand-picked k/4) and add them to precompute.py (needs R offline only)
-  ☐ Investigate why the joint network loses to the ±15-day mean on dropped series (0.173 vs 0.148 at λ = 1.2) when it won in the post
+  ☐ Investigate why the joint network loses to the ±15-day mean on dropped series (0.173 vs 0.148 at λ = 1.2) when it won in the paper
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ Link the Space from the alphaXiv paper (shown under the abstract) @done(26-10-26)
   ✔ Publish model code and training recipe as HF model repo prteek/sparse-panel-demo (no weights; public, CC BY 4.0; hf/model, publish.sh) @done(26-10-26)
   ✔ Switch the app to Gradio and deploy the Space (huggingface.co/spaces/prteek/sparse-panel-demo, RUNNING on cpu-basic) @done(26-10-26 14:41)
   ✔ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (public, CC BY 4.0) @done(26-10-26)
