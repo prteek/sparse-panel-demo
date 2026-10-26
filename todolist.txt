@@ -1,0 +1,16 @@
+Publish:
+  ☐ Create public GitHub repo prteek/sparse-panel-demo and push
+  ☐ Publish outputs/ as HF dataset prteek/sparse-panel-demo with a dataset card (CC BY 4.0)
+  ☐ Create the HF Space (Streamlit) and deploy app.py
+  ☐ Link the Space from the blog post and the alphaXiv version
+
+Backlog:
+  ☐ Add the GAM as a fourth estimator: rebuild the mgcv scripts (area curves + station factor-smooth deviations, hand-picked k/4) and add them to precompute.py (needs R offline only)
+  ☐ Investigate why the joint network loses to the ±15-day mean on dropped series (0.173 vs 0.148 at λ = 1.2) when it won in the post
+  ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
+
+Archive:
+  ✔ Smoke-test and visually check the app (all views render; fixed gap shading, truth colour, legend overlap) @done(26-10-26)
+  ✔ Write app.py (group view, error table by day type, error vs thinning chart) @done(26-10-26)
+  ✔ Precompute 3 thinning levels (9 fits in ~30 s, 3.6 MB of outputs) @done(26-10-26)
+  ✔ Port data prep with station labels and label-dependent thinning @done(26-10-26)

@@ -1,0 +1,22 @@
+[project]
+name = "sparse-panel-demo"
+version = "0.1.0"
+description = "Interactive demo: estimating smooth levels from sparse, gappy panels (Beijing air quality)"
+requires-python = ">=3.13"
+dependencies = [
+    "huggingface-hub>=0.30",
+    "pandas>=2.2",
+    "plotly>=5.24",
+    "pyarrow>=17",
+    "streamlit>=1.40",
+]
+
+[dependency-groups]
+# only needed to refit the scenarios (precompute.py), not to run the app
+precompute = [
+    "numpy>=2.0",
+    "torch>=2.5",
+]
+
+[tool.uv]
+default-groups = ["precompute"]
