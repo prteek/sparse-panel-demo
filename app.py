@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 pio.templates.default = "ggplot2"
 
 HF_DATASET = "prteek/sparse-panel-demo"
-POST_URL = "https://prteek.github.io/regression_room/posts/beijing_air_quality/"
+PAPER_URL = "https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing"
 LAMBDA_NAMES = {0.5: "Sparse: ~0.5 hours a day", 1.2: "As in the post: ~1.2 hours a day", 3.0: "Rich: ~3 hours a day"}
 LABEL_NOTES = {
     "regular": "Thinned at the global setting, with two 20–60 day gaps per pollutant.",
@@ -126,7 +126,7 @@ with gr.Blocks(title="Sparse panel demo") as demo:
         "Hourly PM2.5 and PM10 from 12 Beijing monitoring stations are thinned to a few readings a day, with gaps, "
         "and three estimators try to recover the slow underlying level: a **joint network** that models both "
         "pollutants together, the same network fitted to **one pollutant at a time**, and a **±15-day mean** of the "
-        f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [blog post]({POST_URL})."
+        f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [paper]({PAPER_URL})."
     )
     with gr.Sidebar():
         gr.Markdown("## Scenario")

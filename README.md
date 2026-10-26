@@ -1,6 +1,6 @@
 # sparse-panel-demo
 
-An interactive Gradio demo of the [Beijing air quality post](https://prteek.github.io/regression_room/posts/beijing_air_quality/): hourly PM2.5 and PM10 from 12 stations are thinned to a few readings a day, with gaps, and three estimators try to recover the slow underlying level (the 31-day moving average of the full data). Stations are grouped by what was done to them (regular, sparse, very sparse, long gap, dropped series); the viewer picks a global thinning level and a group, and sees every station in that group. All fits are precomputed offline; the app only reads the results.
+An interactive Gradio demo of the [Beijing air quality post](https://prteek.github.io/regression_room/posts/beijing_air_quality/) (paper on [alphaXiv](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing)): hourly PM2.5 and PM10 from 12 stations are thinned to a few readings a day, with gaps, and three estimators try to recover the slow underlying level (the 31-day moving average of the full data). Stations are grouped by what was done to them (regular, sparse, very sparse, long gap, dropped series); the viewer picks a global thinning level and a group, and sees every station in that group. All fits are precomputed offline; the app only reads the results.
 
 **Live app:** https://huggingface.co/spaces/prteek/sparse-panel-demo · **Data:** https://huggingface.co/datasets/prteek/sparse-panel-demo
 

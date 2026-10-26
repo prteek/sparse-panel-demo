@@ -18,7 +18,8 @@ datasets:
 A small PyTorch network that estimates a smooth **prevailing level** for every location and day of a panel,
 for two related quantities at once, when the observations are noisy daily means with long gaps and some series
 missing entirely. It was developed for the post
-[PM2.5, PM10 ~ station + time](https://prteek.github.io/regression_room/posts/beijing_air_quality/) and powers the
+[PM2.5, PM10 ~ station + time](https://prteek.github.io/regression_room/posts/beijing_air_quality/) (paper on
+[alphaXiv](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing)) and powers the
 [sparse panel demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo).
 
 **This repo holds the code and the training recipe, not trained weights.** The network learns an embedding for
