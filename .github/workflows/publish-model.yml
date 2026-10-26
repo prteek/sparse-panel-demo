@@ -1,0 +1,38 @@
+name: Publish model
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - sparse_panel/model.py
+      - huggingface/model/**
+      - huggingface/publish.sh
+      - .github/workflows/publish-model.yml
+  workflow_dispatch:
+
+concurrency:
+  group: publish-model
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_CLI: hf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU torch and the hf CLI
+        run: |
+          pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy==2.5.4 pandas==3.1.0 huggingface_hub==2.3.0
+      - name: Run the model card's example as published (model.py next to example.py)
+        run: |
+          mkdir smoke
+          cp sparse_panel/model.py huggingface/model/example.py smoke/
+          cd smoke && python example.py
+      - name: Upload to the model repo
+        run: huggingface/publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" model

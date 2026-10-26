@@ -47,6 +47,18 @@ huggingface/publish.sh "message" space                     # publish (targets: d
 uv run pytest -q
 ```
 
+## Publishing from CI
+
+Pushes to `main` publish to Hugging Face through `.github/workflows/` (each can also be run by hand), using the
+`HF_TOKEN` repository secret:
+
+- `publish-space.yml`: when `huggingface/space/` changes; uploads the app and waits until the Space runs it
+  (restarting it once if the upload didn't trigger a rebuild)
+- `publish-model.yml`: when `sparse_panel/model.py` or `huggingface/model/` changes; runs the example, then uploads
+- `publish-dataset.yml`: when the dataset card changes; uploads the card only. The tables are rebuilt with
+  `precompute.py` and published by hand (`huggingface/publish.sh "message" dataset`), so the published predictions
+  stay exactly the ones fitted and checked locally.
+
 The paper's sparse data depends on the order the station files are stacked in, which is pinned in
 `sparse_panel.data.PAPER_STATION_ORDER`; the test fails if the data stops matching.
 

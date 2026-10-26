@@ -1,5 +1,5 @@
 Publish:
-  ☐ CI workflows on push to main: render the paper PDF, publish Space / model / dataset (needs an HF_TOKEN secret)
+  ☐ First CI run: merge to main and check the three publish workflows (HF_TOKEN set by the user)
 
 Migration:
   ☐ Delete posts/beijing_air_quality from regression_room once every post has its own repo (keep regression_room until the last)
@@ -11,6 +11,7 @@ Backlog:
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
+  ✔ CI workflows publishing the Space, model and dataset card to Hugging Face on push to main @done(26-10-26)
   ✔ Move the paper and its code in: shared sparse_panel library, paper/ renders the PDF, results reproduced exactly @done(26-10-26)
   ✔ Link the Space from the alphaXiv paper (shown under the abstract) @done(26-10-26)
   ✔ Publish model code and training recipe as HF model repo prteek/sparse-panel-demo (no weights; public, CC BY 4.0; hf/model, publish.sh) @done(26-10-26)

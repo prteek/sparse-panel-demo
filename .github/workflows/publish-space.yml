@@ -1,0 +1,34 @@
+name: Publish Space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - huggingface/space/**
+      - huggingface/publish.sh
+      - huggingface/wait_for_space.py
+      - .github/workflows/publish-space.yml
+  workflow_dispatch:
+
+concurrency:
+  group: publish-space
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_CLI: hf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install huggingface_hub==2.3.0
+      - name: Check the app compiles
+        run: python -m py_compile huggingface/space/app.py
+      - name: Upload to the Space
+        run: huggingface/publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" space
+      - name: Wait until the Space runs the new commit
+        run: python huggingface/wait_for_space.py prteek/sparse-panel-demo
