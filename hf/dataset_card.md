@@ -25,7 +25,7 @@ configs:
 
 # Sparse panel demo (Beijing air quality)
 
-Precomputed scenarios behind the [sparse-panel-demo](https://github.com/prteek/sparse-panel-demo) Streamlit app, which accompanies the blog post [PM2.5, PM10 ~ station + time](https://prteek.github.io/regression_room/posts/beijing_air_quality/).
+Precomputed scenarios behind the [sparse-panel-demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo) (code: [GitHub](https://github.com/prteek/sparse-panel-demo)), which accompanies the blog post [PM2.5, PM10 ~ station + time](https://prteek.github.io/regression_room/posts/beijing_air_quality/).
 
 Daily PM2.5 and PM10 at 12 Beijing monitoring stations (March 2013 – February 2017) are thinned to a few hourly readings a day, with gaps, and three estimators try to recover the slow underlying level:
 

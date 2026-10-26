@@ -1,4 +1,4 @@
-"""Streamlit app: compare estimators of a smooth level on sparse, gappy air-quality data.
+"""Gradio app: compare estimators of a smooth level on sparse, gappy air-quality data.
 
 Reads the tables written by precompute.py: from DATA_DIR if set (or ./outputs if present), otherwise from the
 Hugging Face dataset HF_DATASET.
@@ -7,9 +7,9 @@ import json
 import os
 from pathlib import Path
 
+import gradio as gr
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 from plotly.subplots import make_subplots
 
 HF_DATASET = "prteek/sparse-panel-demo"
@@ -31,10 +31,7 @@ STYLE = {
 DAY_TYPES = ["all", "observed", "unobserved", "gap"]
 TRUTH_COLOR = "#2ca02c"  # visible on light and dark themes
 
-st.set_page_config(page_title="Sparse panel demo", layout="wide")
 
-
-@st.cache_data(show_spinner="Loading scenarios…")
 def load() -> dict:
     local = Path(os.environ.get("DATA_DIR", Path(__file__).parent / "outputs"))
     if local.exists():
@@ -89,55 +86,71 @@ def error_table(m: pd.DataFrame) -> pd.DataFrame:
     tab = m.pivot_table(index="estimator", columns="day_type", values="error")
     days = m.groupby("day_type")["days"].max()
     cols = [c for c in DAY_TYPES if c in tab]
-    tab = tab[cols].reindex(list(STYLE))
-    tab.columns = [f"{c} ({days[c]:,} days)" for c in cols]
-    return tab.round(3)
+    tab = tab[cols].reindex(list(STYLE)).map(lambda v: f"{v:.3f}")
+    tab.loc["days"] = [f"{days[c]:,}" for c in cols]  # counts as a row keeps the headers narrow
+    return tab.reset_index()
 
 
-t = load()
-labels = t["labels"]
-
-st.title("Smooth levels from sparse, gappy data")
-st.markdown(
-    "Hourly PM2.5 and PM10 from 12 Beijing monitoring stations are thinned to a few readings a day, with gaps, "
-    "and three estimators try to recover the slow underlying level: a **joint network** that models both "
-    "pollutants together, the same network fitted to **one pollutant at a time**, and a **±15-day mean** of the "
-    f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [blog post]({POST_URL})."
-)
-
-with st.sidebar:
-    st.header("Scenario")
-    lam = st.radio("Readings kept (Poisson mean hours per station-day)", t["meta"]["lambdas"],
-                   index=t["meta"]["lambdas"].index(1.2), format_func=lambda l: LAMBDA_NAMES.get(l, str(l)))
-    st.header("View")
-    label = st.selectbox("Station group", list(LABEL_NOTES))
-    if label == "dropped series":
-        st.caption("Each station shows the pollutant that was dropped.")
-        pollutant = "dropped"
-    else:
-        pollutant = st.radio("Pollutant", ["PM2.5", "PM10"], horizontal=True)
-
-group = labels[labels["label"] == label]
-rows = group.assign(pollutant=group["dropped"] if label == "dropped series" else pollutant)
-
-st.subheader(f"{label.capitalize()} stations")
-st.caption(LABEL_NOTES[label] + " Shaded: gap blocks.")
-st.plotly_chart(figure(t, lam, rows), width="stretch")
-
-m = t["metrics"][(t["metrics"]["label"] == label) & (t["metrics"]["pollutant"] == pollutant)]
-left, right = st.columns([3, 2])
-with left:
-    st.markdown("**Error against the 31-day MA** (mean absolute log error; 0.15 ≈ 15%)")
-    st.dataframe(error_table(m[m["lam"] == lam]), width="stretch")
-    st.caption("observed: days with a reading · unobserved: no reading, outside the gaps · gap: inside a gap block")
-with right:
-    st.markdown("**All days, by thinning level**")
+def trend_figure(m: pd.DataFrame) -> go.Figure:
     trend = m[m["day_type"] == "all"].pivot_table(index="lam", columns="estimator", values="error")[list(STYLE)]
     fig = go.Figure([go.Scatter(x=trend.index, y=trend[c], mode="lines+markers", name=c,
                                 line={k: v for k, v in STYLE[c].items() if k != "width"}) for c in trend])
-    fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="mean hours kept per day",
-                      yaxis_title="error", legend=dict(orientation="h", y=-0.35))
-    st.plotly_chart(fig, width="stretch")
+    fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="mean hours kept per day",
+                      yaxis_title="error", legend=dict(orientation="h", y=-0.3))
+    return fig
 
-st.caption("Data: Beijing Multi-Site Air Quality, UCI Machine Learning Repository (CC BY 4.0). "
-           "Labels are assigned once with a fixed seed: each degraded group has one urban and one suburban station.")
+
+T = load()
+LAMBDAS = T["meta"]["lambdas"]
+
+
+def view(lam: float, label: str, pollutant: str):
+    group = T["labels"][T["labels"]["label"] == label]
+    if label == "dropped series":
+        pollutant = "dropped"
+        rows = group.assign(pollutant=group["dropped"])
+    else:
+        rows = group.assign(pollutant=pollutant)
+    m = T["metrics"][(T["metrics"]["label"] == label) & (T["metrics"]["pollutant"] == pollutant)]
+    note = f"### {label.capitalize()} stations\n{LABEL_NOTES[label]} Shaded: gap blocks."
+    return (note, figure(T, lam, rows), error_table(m[m["lam"] == lam]), trend_figure(m),
+            gr.update(visible=label != "dropped series"))
+
+
+with gr.Blocks(title="Sparse panel demo") as demo:
+    gr.Markdown(
+        "# Smooth levels from sparse, gappy data\n"
+        "Hourly PM2.5 and PM10 from 12 Beijing monitoring stations are thinned to a few readings a day, with gaps, "
+        "and three estimators try to recover the slow underlying level: a **joint network** that models both "
+        "pollutants together, the same network fitted to **one pollutant at a time**, and a **±15-day mean** of the "
+        f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [blog post]({POST_URL})."
+    )
+    with gr.Sidebar():
+        gr.Markdown("## Scenario")
+        lam = gr.Radio([(LAMBDA_NAMES.get(l, str(l)), l) for l in LAMBDAS], value=1.2,
+                       label="Readings kept (Poisson mean hours per station-day)")
+        gr.Markdown("## View")
+        label = gr.Dropdown(list(LABEL_NOTES), value="regular", label="Station group")
+        pollutant = gr.Radio(["PM2.5", "PM10"], value="PM2.5", label="Pollutant")
+    note = gr.Markdown()
+    plot = gr.Plot(show_label=False)
+    with gr.Row():
+        with gr.Column(scale=3):
+            gr.Markdown("**Error against the 31-day MA** (mean absolute log error; 0.15 ≈ 15%)")
+            table = gr.Dataframe(interactive=False, show_label=False)
+            gr.Markdown("observed: days with a reading · unobserved: no reading, outside the gaps · "
+                        "gap: inside a gap block")
+        with gr.Column(scale=2):
+            gr.Markdown("**All days, by thinning level**")
+            trend = gr.Plot(show_label=False)
+    gr.Markdown("Data: Beijing Multi-Site Air Quality, UCI Machine Learning Repository (CC BY 4.0). "
+                "Labels are assigned once with a fixed seed: each degraded group has one urban and one suburban "
+                "station.")
+
+    outputs = [note, plot, table, trend, pollutant]
+    for control in (lam, label, pollutant):
+        control.change(view, [lam, label, pollutant], outputs)
+    demo.load(view, [lam, label, pollutant], outputs)
+
+if __name__ == "__main__":
+    demo.launch()

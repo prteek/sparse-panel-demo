@@ -13,4 +13,4 @@ updated: 2026-10-26
 - **Dropped series scored on the dropped pollutant only** — the other pollutant at those stations keeps its data, so including it would flatter every estimator.
 - **Dropped label ignores the pollutant control** — the two dropped stations lost different pollutants (Dongsi PM2.5, Dingling PM10), so each panel shows its own dropped series.
 - **Predictions published as a separate HF dataset** — the app downloads `prteek/sparse-panel-demo` unless local `outputs/` exist; the data is derived from UCI data, so it carries CC BY 4.0.
-- **Streamlit** — chosen over Gradio. HF no longer offers a Streamlit SDK (create accepts gradio/docker/static only), so an HF deployment needs a Docker Space (`hf/space/`), which requires PRO.
+- **Gradio on an HF Space** — switched from Streamlit: HF no longer offers a Streamlit SDK (only gradio/docker/static), so Gradio runs natively without a Dockerfile; Gradio/Docker Spaces on cpu-basic need PRO.

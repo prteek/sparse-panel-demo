@@ -10,5 +10,5 @@ cp outputs/*.parquet outputs/meta.json "$stage/dataset/"
 cp hf/dataset_card.md "$stage/dataset/README.md"
 uv run hf upload prteek/sparse-panel-demo "$stage/dataset" . --repo-type dataset --commit-message "${1:-Update scenarios}"
 
-cp app.py hf/space/README.md hf/space/requirements.txt hf/space/Dockerfile "$stage/space/"
+cp app.py hf/space/README.md hf/space/requirements.txt "$stage/space/"
 uv run hf upload prteek/sparse-panel-demo "$stage/space" . --repo-type space --commit-message "${1:-Update app}"
