@@ -28,10 +28,7 @@ CPU.
 
 ## Files
 
-- `model.py`: the encoding, the network, the loss and `fit` / `predict`. It is a copy of
-  [`sparse_panel/model.py`](https://github.com/prteek/sparse-panel-modelling/blob/main/sparse_panel/model.py) in
-  [github.com/prteek/sparse-panel-modelling](https://github.com/prteek/sparse-panel-modelling), the source of truth,
-  published here on every change to it.
+- `model.py`: the encoding, the network, the loss and `fit` / `predict`
 - `example.py`: fits the network to a small synthetic panel and predicts every cell (runs as is)
 
 ## Model
