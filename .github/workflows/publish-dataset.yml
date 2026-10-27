@@ -1,13 +1,13 @@
 name: Publish dataset card
 
-# Only the card is published from CI. The tables are rebuilt with huggingface/dataset/precompute.py and uploaded by
-# hand (huggingface/publish.sh "message" dataset): refitting on a CI runner would change the published predictions
+# Only the card is published from CI. The tables are rebuilt with dataset/precompute.py and uploaded by
+# hand (./publish.sh "message" dataset): refitting on a CI runner would change the published predictions
 # in the last decimals.
 on:
   push:
     branches: [main]
     paths:
-      - huggingface/dataset/README.md
+      - dataset/README.md
       - .github/workflows/publish-dataset.yml
   workflow_dispatch:
 
@@ -28,4 +28,4 @@ jobs:
           python-version: "3.12"
       - run: pip install huggingface_hub==2.3.0
       - name: Upload the dataset card
-        run: huggingface/publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" dataset-card
+        run: ./publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" dataset-card

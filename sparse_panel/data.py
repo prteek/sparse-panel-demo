@@ -1,8 +1,8 @@
 """Beijing multi-site air quality data: download, daily means, and the two ways of thinning it to sparse readings.
 
-- Paper (`prepare_paper_data`, `thin_uniform`): every station and pollutant keeps a Poisson(PAPER_LAMBDA) random subset
+- Blog post (`prepare_paper_data`, `thin_uniform`): every station and pollutant keeps a Poisson(PAPER_LAMBDA) random subset
   of its valid hours per day, plus PAPER_GAP_BLOCKS runs of 20-60 empty days. Writes data/daily_full.parquet,
-  data/daily_sparse.parquet and data/gaps.parquet, which the paper and its CV scripts read.
+  data/daily_sparse.parquet and data/gaps.parquet, which the blog post and its CV scripts read.
 - Demo (`assign_labels`, `thin_by_label`): every station gets one label, which decides how its readings are thinned
   relative to the global setting `lam` (Poisson mean of hours kept per station-day and pollutant):
 

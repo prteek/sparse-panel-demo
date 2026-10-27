@@ -14,7 +14,7 @@ Writes to outputs/:
                        (day_type: all / observed / unobserved / gap; for 'dropped series' pollutant is 'dropped')
   meta.json            settings used
 
-Run: uv run python huggingface/dataset/precompute.py
+Run: uv run python dataset/precompute.py
 """
 import json
 
@@ -28,7 +28,7 @@ from sparse_panel.model import TARGETS, Encoding, fit, predict
 from sparse_panel.paths import OUTPUTS
 
 LAMBDAS = [0.5, 1.2, 3.0]
-# Settings chosen by look-ahead CV in the paper
+# Settings chosen by look-ahead CV in the blog post
 CFG = dict(rough=1e5, spacing=30, lr=5e-3, hidden=64, weight_decay=1e-4, station_l2=1e-3, schedule=1000, seed=0)
 STEPS = 100
 

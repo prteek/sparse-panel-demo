@@ -1,0 +1,530 @@
+---
+# The blog post: `QUARTO_PYTHON=.venv/bin/python quarto render blog/index.qmd` (from the repo root)
+# writes sparse-panel-modelling.md next to this file, ready to paste into the Hugging Face article editor, with its
+# figures in assets/ (upload each in the editor, which replaces its local link). Code cells import sparse_panel.
+format:
+  gfm:
+    output-file: sparse-panel-modelling
+    wrap: preserve
+filters:
+  - _hf-markdown.lua  # inline maths as \\( ... \\)
+execute:
+  echo: false
+  warning: false
+  engine: jupyter
+---
+
+```{python}
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import torch
+from IPython.display import Markdown, display
+
+from sparse_panel.baselines import smooth_truth
+from sparse_panel.baselines import window_mean as baseline
+from sparse_panel.cv import best_config, load
+from sparse_panel.model import KEY, TARGETS, Encoding, fit, predict
+from sparse_panel.paths import DATA
+
+sns.set_theme(style="whitegrid")
+torch.set_num_threads(6)
+
+# figures are saved next to the post; the article editor swaps each for its own link when it is uploaded
+ASSETS = Path("assets")
+ASSETS.mkdir(exist_ok=True)
+
+
+def figure(fig, name, alt, caption=None):
+    fig.savefig(ASSETS / f"{name}.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    display(Markdown(f"![{alt}]({ASSETS}/{name}.png)" + (f"\n\n*{caption}*" if caption else "")))
+
+
+sparse, full = load()  # downloads the UCI data and draws the sparse version on first run
+level = smooth_truth(full)
+MA = f"{smooth_truth.__defaults__[0]}-day MA"  # centred moving average of the full data, the benchmark
+gaps = pd.read_parquet(DATA / "gaps.parquet")
+n_cells = sparse["station"].nunique() * full["date"].nunique()
+```
+
+# Smooth Levels from Sparse, Gappy Panels
+
+## Masking, Weighting and a Curvature Penalty in PyTorch
+
+Real-world panel data is rarely tidy. Local price indices, sensor networks and small-area statistics all produce many short time series, one per location, that are noisy, full of gaps, and sometimes missing a whole series. Often what we actually want is not the noisy reading but a **prevailing level**: a smooth estimate of each series at each location, including the periods where nothing was observed.
+
+This post walks through a small PyTorch network that does this for **two related targets at once**, and tests it on air-quality data from Beijing that we deliberately break. Everything is open:
+
+- 🎮 **Try it:** [Space: sparse-panel-demo](https://huggingface.co/spaces/prteek/sparse-panel-demo)
+- 🧠 **Model code and recipe:** [prteek/sparse-panel-demo](https://huggingface.co/prteek/sparse-panel-demo)
+- 📊 **Data:** [datasets/prteek/sparse-panel-demo](https://huggingface.co/datasets/prteek/sparse-panel-demo)
+- 💻 **Code:** [github.com/prteek/sparse-panel-modelling](https://github.com/prteek/sparse-panel-modelling)
+
+## TL;DR
+
+- Model the two targets **jointly**, and treat a missing target as **masked** in the loss rather than dropping the row.
+- **Weight** each observation by how many raw readings went into it.
+- Make smoothness **explicit** with fixed Gaussian time bumps and a curvature penalty over every day, observed or not.
+- On deliberately thinned Beijing PM2.5/PM10 data, the network carries the level through long gaps and very sparse stations far better than a moving average, and the joint model **recovers a series it never saw**. The price: where data is plentiful, separate single-target models are slightly more accurate.
+
+## The problem
+
+Picture a panel where every location has its own time series of two related quantities: two nearby sensors, or rents and sale prices in the same neighbourhood. Each observation is a mean over some raw readings, so it is noisy. Some locations observe only one of the two series, some observe neither for weeks at a time, and some never observe one of them at all.
+
+Smoothing each series on its own breaks down exactly where you need it most: long gaps and very noisy series. To do better, the model has to borrow information, and this kind of panel offers two sources:
+
+- **Across locations:** nearby or similar locations are related, so a sparse series can lean on its peers.
+- **Across targets:** the two quantities are related, so a day where only one was observed still says something about the other.
+
+The network below uses both, and the experiment measures how much each one helps.
+
+## The data: breaking a good dataset on purpose
+
+To evaluate on sparse data while still knowing the truth, we start from a very complete dataset and thin it. The [UCI Beijing Multi-Site Air Quality](https://archive.ics.uci.edu/dataset/501) dataset has hourly PM2.5 and PM10 at 12 stations from March 2013 to February 2017, with more than 99% of station-days covered. The two pollutants are closely related, which makes them a good fit for the two-target setting.
+
+We work with daily means and keep $n$, the number of hours behind each mean, as a measure of how reliable it is. Then we thin the data:
+
+- For each station and day, keep a random Poisson(1.2) number of hours, drawn separately for PM2.5 and PM10. Often only one of the two is observed on a given day.
+- From each station and pollutant series, remove two blocks of 20–60 consecutive days.
+
+```{python}
+wide = sparse.pivot_table(index=KEY, columns="pollutant", values="n").notna()
+rows = []
+for t in TARGETS:
+    f, s = full[full["pollutant"] == t], sparse[sparse["pollutant"] == t]
+    rows.append(
+        {
+            "pollutant": t,
+            "full: days observed": f"{len(f) / n_cells:.0%}",
+            "full: hours/day": f"{f['n'].mean():.1f}",
+            "sparse: days observed": f"{len(s) / n_cells:.0%}",
+            "sparse: hours/day": f"{s['n'].mean():.1f}",
+        }
+    )
+display(Markdown(pd.DataFrame(rows).to_markdown(index=False)))
+both, one = wide.all(axis=1).sum() / n_cells, (wide.sum(axis=1) == 1).sum() / n_cells
+```
+
+After thinning, both pollutants are observed on `{python} f"{both:.0%}"` of station-days and exactly one of them on `{python} f"{one:.0%}"`.
+
+The **ground truth** is a 31-day centred moving average of the daily (log) means of the *full* data.
+
+```{python}
+st, pol, a, b = "Dongsi", "PM2.5", "2015-03-01", "2016-02-29"
+sel = lambda d: d[
+    (d["station"] == st) & (d["pollutant"] == pol) & d["date"].between(a, b)
+]
+fig, ax = plt.subplots(figsize=(10, 3.6))
+ax.plot(
+    sel(full)["date"],
+    sel(full)["value"],
+    color="0.8",
+    lw=0.8,
+    label="full-data daily mean",
+)
+s = sel(sparse)
+ax.scatter(
+    s["date"],
+    s["value"],
+    s=6 + 6 * s["n"],
+    color="0.3",
+    alpha=0.6,
+    label="sparse readings",
+)
+ax.plot(sel(level)["date"], sel(level)["value"], color="black", lw=1.8, label=MA)
+ax.set_yscale("log")
+ax.set_ylabel("µg/m³ (log scale)")
+ax.legend(fontsize=8, loc="upper left")
+figure(
+    fig,
+    "thinned-data",
+    "Dongsi station, PM2.5, one year. Grey: full-data daily means. Dots: the sparse readings (size = hours). "
+    f"Black: the {MA} of the full data.",
+    "Dongsi, PM2.5, one year. Grey: full-data daily means. Dots: sparse readings (size = hours). "
+    "Black: the 31-day moving average of the full data, our target.",
+)
+```
+
+Daily pollution easily varies by a factor of two from one day to the next with the weather, and a mean of one or two hours adds a lot of noise on top. The prevailing level is the slow black line.
+
+## The model
+
+### Architecture
+
+Each row is one station-day with up to two targets, $y_1 = \log \text{PM2.5}$ and $y_2 = \log \text{PM10}$ (standardised). The network maps *(station, day)* to a level for both:
+
+$$
+\begin{aligned}
+x &= \big[\, e_{\text{area}} + e_{\text{station}},\ b(t) \,\big] \\
+h &= \operatorname{SiLU}\!\big(W_2 \operatorname{SiLU}(W_1 x)\big) \\
+\mu_1 &= w_1^\top h, \quad \mu_2 = w_2^\top h
+\end{aligned}
+$$
+
+- **Location** is an 8-dim area embedding plus a station offset that starts near zero and is penalised, so a station with little data falls back to its area.
+- **Time** enters only through fixed Gaussian bumps, $b_k(t) = \exp\{-\tfrac12 ((t - c_k)/w)^2\}$, with centres $c_k$ every $w$ days. Neighbouring days get almost identical bump vectors, so the level cannot jump from one day to the next.
+- **A shared trunk** of two 64-unit SiLU layers feeds **two linear heads**, one per pollutant. Everything before the heads is shared, so a day that observed only PM2.5 still trains everything PM10 depends on.
+
+In PyTorch this is small:
+
+```python
+class TimeBasis(nn.Module):
+    def __init__(self, n_days: int, spacing: int):
+        super().__init__()
+        self.register_buffer("centres", torch.arange(-spacing, n_days + 2 * spacing, spacing, dtype=torch.float32))
+        self.width = float(spacing)
+
+    def forward(self, day):
+        return torch.exp(-0.5 * ((day.float()[:, None] - self.centres[None, :]) / self.width) ** 2)
+
+
+class PrevailingNet(nn.Module):
+    ...
+    def forward(self, x):
+        loc = self.area(x["area"]) + self.station(x["station"])
+        h = self.trunk(torch.cat([loc, self.time(x["day"])], dim=1))
+        return torch.cat([head(h) for head in self.heads], dim=1)
+```
+
+### Loss: mask, weight, smooth
+
+Each daily observation is a mean of $n$ hourly readings, so its variance around the level is the reading variance divided by $n$, plus a floor $\tau^2$ for day-to-day movements the level should *not* follow. For target $j$:
+
+$$
+\mathcal{L}_{\text{fit}} = \frac{1}{\sum m_{ij}} \sum_{i,j} m_{ij} \left[ \tfrac12 \log v_{ij} + \frac{(y_{ij} - \mu_{ij})^2}{2 v_{ij}} \right],
+\qquad v_{ij} = \frac{\sigma_j^2}{n_{ij}} + \tau_j^2
+$$
+
+Here $m_{ij}$ is 1 if target $j$ was observed on row $i$ and 0 otherwise: a missing target is **masked, not dropped**. $\sigma_j$ and $\tau_j$ are learned per target, and a day with 24 readings counts far more than a day with one.
+
+Smoothness comes from a penalty on the curvature of every station's predicted series over the **whole** day grid, observed or not:
+
+$$
+\mathcal{L} = \mathcal{L}_{\text{fit}} + \lambda \, \overline{\left(\mu_{t+1} - 2\mu_t + \mu_{t-1}\right)^2} + \gamma \, \overline{\lVert e_{\text{station}} \rVert^2}
+$$
+
+Because the network produces predictions for days without data too, the penalty controls the curve inside gaps and at the edges of the series. The whole loss is a few lines:
+
+```python
+def nll(mu, model, y, mask, n):
+    var = torch.exp(2 * model.log_sigma) / n + torch.exp(2 * model.log_tau)
+    out = 0.5 * (torch.log(var) + (y - mu) ** 2 / var)
+    return (out * mask).sum() / mask.sum()
+
+
+def roughness(model):
+    mu = model.all_series()  # (stations, days, targets), every day on the grid
+    return (mu[:, 2:] - 2 * mu[:, 1:-1] + mu[:, :-2]).pow(2).mean()
+
+
+loss = (nll(model(x), model, y, mask, n) + cfg["rough"] * roughness(model)
+        + cfg["station_l2"] * model.station.weight.pow(2).mean())
+```
+
+Training is full-batch Adam with a cosine schedule. On the 12-station, four-year panel a fit takes a few seconds on a CPU.
+
+## The experiment
+
+To test the worst cases, two stations are degraded further before fitting:
+
+- **A dropped series:** every PM10 reading at *Dingling* is removed; only its PM2.5 remains.
+- **A very sparse station:** *Huairou* keeps only 15% of its (already sparse) days.
+
+Three estimators are fitted to the same data:
+
+1. **Joint:** the network above, modelling both pollutants together.
+2. **Single-target:** the same network trained on one pollutant at a time (two separate models).
+3. **±15-day mean:** for each station and pollutant, the hour-weighted mean of the sparse readings within 15 days; where a station has no readings at all, the same within its area.
+
+### Choosing the settings
+
+```{python}
+cfg, steps = best_config()
+assert (cfg["rough"], cfg["spacing"]) == (1e5, 30), "CV picked new settings: update the text below"
+```
+
+The curvature weight $\lambda$, bump spacing $w$ and number of training steps are chosen by **look-ahead cross-validation**: 12 sequential folds, 30 days apart over the final year. Each fold trains on everything up to its cutoff and is scored on the next 15 days of sparse readings, with **every station hidden at once**. The winner is $\lambda = 10^5$, $w = 30$ days and `{python} steps` training steps.
+
+The validation scheme matters more than it looks. We also tried hiding one station per area while its neighbours kept reporting:
+
+- **Every station hidden** asks what persists into the near future. Episodes of two to three weeks don't carry past the cutoff, so a curve that chases them is punished. This defines the level as *the part of the series that persists*.
+- **One station hidden** asks what this station is doing right now, given its neighbours right now. That rewards following shared short episodes and picks a much rougher curve.
+
+Neither is wrong, but a *prevailing level* is the first one.
+
+```{python}
+DROPPED, VERY_SPARSE, KEEP = ("Dingling", "PM10"), "Huairou", 0.15
+rng = np.random.default_rng(1)
+train = sparse[
+    ~((sparse["station"] == DROPPED[0]) & (sparse["pollutant"] == DROPPED[1]))
+]
+vs = train["station"] == VERY_SPARSE
+train = pd.concat(
+    [train[~vs], train[vs][rng.random(vs.sum()) < KEEP]], ignore_index=True
+)
+
+enc = Encoding.fit(train, end=full["date"].max())
+w = enc.wide(train)
+grid = enc.grid()
+cells = grid.merge(pd.DataFrame({"pollutant": TARGETS}), how="cross")
+
+preds = {"joint": predict(fit(enc, w, cfg, steps), enc, grid)}
+preds["single-target"] = pd.concat(
+    [
+        predict(fit(enc, w, cfg, steps, use=[t]), enc, grid).query("pollutant == @t")
+        for t in TARGETS
+    ]
+)
+station_mean = baseline(train, cells)
+area_of = train.drop_duplicates("station").set_index("station")["area"]
+area_daily = (
+    train.assign(lw=np.log(train["value"]) * train["n"])
+    .groupby(["area", "date", "pollutant"])
+    .agg(lw=("lw", "sum"), n=("n", "sum"))
+    .reset_index()
+    .assign(value=lambda d: np.exp(d["lw"] / d["n"]))
+    .rename(columns={"area": "station"})
+)
+area_mean = baseline(area_daily, cells.assign(station=cells["station"].map(area_of)))
+station_mean["pred"] = station_mean["pred"].fillna(
+    pd.Series(area_mean["pred"].to_numpy(), index=station_mean.index)
+)
+preds["±15-day mean"] = station_mean
+```
+
+## Results
+
+Error is the mean absolute log error against the 31-day moving average of the full data (0.15 ≈ 15%). Every station-day and pollutant falls into one group: the **dropped series** (Dingling PM10), the **very sparse station** (Huairou), and, for every other station, **observed** days, **unobserved** days outside the gap blocks, the subset of those where **the other pollutant was observed**, and days inside a **long gap**.
+
+```{python}
+obs = train[KEY + ["pollutant"]].assign(observed=True)
+g = gaps.assign(gap=True)
+c = cells.merge(obs, on=KEY + ["pollutant"], how="left").merge(
+    g, on=KEY + ["pollutant"], how="left"
+)
+c[["observed", "gap"]] = c[["observed", "gap"]].fillna(False).astype(bool)
+other = obs.assign(
+    pollutant=obs["pollutant"].map(dict(zip(TARGETS, TARGETS[::-1])))
+).rename(columns={"observed": "other_obs"})
+c = c.merge(other, on=KEY + ["pollutant"], how="left")
+c["other_obs"] = c["other_obs"].fillna(False).astype(bool)
+
+dropped = (c["station"] == DROPPED[0]) & (c["pollutant"] == DROPPED[1])
+vsparse = c["station"] == VERY_SPARSE
+regular = ~dropped & ~vsparse
+groups = {
+    "observed": regular & c["observed"],
+    "unobserved": regular & ~c["observed"] & ~c["gap"],
+    "other pollutant observed": regular & ~c["observed"] & c["other_obs"],
+    "long gap": regular & c["gap"],
+    "very sparse station": vsparse,
+    "dropped series": dropped,
+}
+
+rows = []
+for gname, sel in groups.items():
+    cc = c[sel][KEY + ["pollutant"]].merge(level, on=KEY + ["pollutant"])
+    for mname, p in preds.items():
+        r = cc.merge(p, on=KEY + ["pollutant"]).dropna(subset=["pred"])
+        e = np.log(r["pred"]) - np.log(r["value"])
+        rows.append(
+            {
+                "group": gname,
+                "model": mname,
+                "days": len(r),
+                "error": np.mean(np.abs(e)),
+                "bias": np.mean(e),
+            }
+        )
+res = pd.DataFrame(rows)
+table = res.pivot_table(index="group", columns="model", values="error").loc[
+    list(groups)
+][list(preds)]
+shown = table.map(lambda v: f"{v:.3f}")
+for gname, best in table.idxmin(axis=1).items():  # bold the best estimator in each group
+    shown.loc[gname, best] = f"**{shown.loc[gname, best]}**"
+shown.insert(0, "station-days", res.groupby("group")["days"].max().map("{:,}".format))
+display(Markdown(shown.to_markdown(colalign=["left"] + ["right"] * 4)))
+E = res.set_index(["group", "model"])["error"]
+```
+
+```{python}
+fig, ax = plt.subplots(figsize=(10, 3.8))
+sns.barplot(
+    data=res,
+    x="group",
+    y="error",
+    hue="model",
+    order=list(groups),
+    ax=ax,
+    palette=["tab:blue", "tab:purple", "tab:orange"],
+)
+ax.set_xlabel("")
+ax.set_ylabel("mean absolute log error")
+ax.tick_params(axis="x", labelsize=8)
+ax.legend(fontsize=8)
+figure(fig, "error-by-group", f"Error against the {MA} by group and estimator")
+```
+
+For reference, a raw sparse reading on an observed day is off by roughly 0.7–0.8, so all three estimators remove most of the noise. The differences are in the hard cases.
+
+```{python}
+STYLE = {
+    "joint": dict(color="tab:blue", lw=1.8),
+    "single-target": dict(color="tab:purple", lw=1.2, ls="--"),
+    "±15-day mean": dict(color="tab:orange", lw=1.0, alpha=0.8),
+}
+
+
+def panel(ax, st, pol, start=None, end=None, title=None):
+    start, end = (
+        pd.Timestamp(start or full["date"].min()),
+        pd.Timestamp(end or full["date"].max()),
+    )
+    sel = lambda d: d[
+        (d["station"] == st) & (d["pollutant"] == pol) & d["date"].between(start, end)
+    ]
+    gg = sel(gaps)
+    for i, (a, b) in enumerate(
+        gg.groupby((gg["date"].diff().dt.days != 1).cumsum())["date"]
+        .agg(["min", "max"])
+        .itertuples(index=False)
+    ):
+        ax.axvspan(
+            a, b, color="gold", alpha=0.25, label="gap block" if i == 0 else None
+        )
+    s = sel(train)
+    ax.scatter(
+        s["date"],
+        s["value"],
+        s=4 + 4 * s["n"],
+        color="0.35",
+        alpha=0.55,
+        label="sparse readings (training)",
+    )
+    ax.plot(sel(level)["date"], sel(level)["value"], color="black", lw=1.6, label=MA)
+    for name, p in preds.items():
+        q = sel(p)
+        ax.plot(q["date"], q["pred"], label=name, **STYLE[name])
+    ax.set_yscale("log")
+    ax.set_title(title or f"{st} · {pol}", fontsize=9)
+    ax.tick_params(labelsize=8)
+```
+
+**Long gaps.** The networks carry the level through (joint `{python} f"{E['long gap', 'joint']:.3f}"`, single-target `{python} f"{E['long gap', 'single-target']:.3f}"`) while the ±15-day mean runs out of data (`{python} f"{E['long gap', '±15-day mean']:.3f}"`). Once its window empties, the moving average either stops or swings on the few readings at the edges; the networks carry on smoothly.
+
+```{python}
+gg = gaps[~gaps["station"].isin([VERY_SPARSE, DROPPED[0]])].sort_values("date")
+blocks = (
+    gg.groupby(["station", "pollutant"])
+    .apply(
+        lambda d: d.groupby((d["date"].diff().dt.days != 1).cumsum())["date"].agg(
+            ["min", "max", "count"]
+        )
+    )
+    .reset_index()
+    .sort_values("count", ascending=False)
+    .drop_duplicates("station")
+    .head(4)
+)
+fig, axes = plt.subplots(2, 2, figsize=(14, 7))
+for ax, r in zip(axes.flat, blocks.itertuples(index=False)):
+    pad = pd.Timedelta(days=60)
+    panel(
+        ax,
+        r.station,
+        r.pollutant,
+        r.min - pad,
+        r.max + pad,
+        f"{r.station} · {r.pollutant} · {r.count}-day gap",
+    )
+axes[0, 0].legend(fontsize=7, loc="upper right", ncol=2)
+fig.tight_layout()
+figure(fig, "long-gaps", "The four longest gap blocks (shaded) at regular stations, with 60 days either side")
+```
+
+**A very sparse station.** With 15% of its days, Huairou is too thin for a moving average (`{python} f"{E['very sparse station', '±15-day mean']:.3f}"`). Both networks do as well as on regular stations (`{python} f"{E['very sparse station', 'joint']:.3f}"` and `{python} f"{E['very sparse station', 'single-target']:.3f}"`), because strong smoothing and the shared area pattern fill in what the station lacks.
+
+```{python}
+fig, axes = plt.subplots(2, 1, figsize=(14, 6.4), sharex=True)
+for ax, pol in zip(axes, TARGETS):
+    panel(ax, VERY_SPARSE, pol)
+axes[0].legend(fontsize=7, loc="upper right", ncol=3)
+figure(fig, "huairou-very-sparse", "Huairou with 15% of its sparse days kept")
+```
+
+**A dropped series.** This is where modelling both pollutants together pays off. With no PM10 at Dingling at all, the joint model infers it from Dingling's PM2.5 (`{python} f"{E['dropped series', 'joint']:.3f}"`). The single-target PM10 model has nothing station-specific to go on and returns the suburban area's level, which is too high (`{python} f"{E['dropped series', 'single-target']:.3f}"`). The joint model also beats the area moving average (`{python} f"{E['dropped series', '±15-day mean']:.3f}"`), though its curve runs a little low and misses some peaks.
+
+```{python}
+fig, axes = plt.subplots(2, 1, figsize=(14, 6.4), sharex=True)
+panel(axes[0], DROPPED[0], "PM2.5", title="Dingling · PM2.5 (observed)")
+panel(axes[1], DROPPED[0], "PM10", title="Dingling · PM10 (dropped: no training data)")
+axes[0].legend(fontsize=7, loc="upper right", ncol=3)
+figure(fig, "dingling-dropped", "Dingling: PM2.5 observed (top), PM10 completely dropped (bottom)")
+```
+
+**Everywhere else, sharing costs a little.** On observed, unobserved and long-gap days, the single-target models are slightly more accurate (`{python} f"{E['observed', 'single-target']:.3f}"` vs `{python} f"{E['observed', 'joint']:.3f}"` on observed days). When a station has its own data for a pollutant, borrowing from the other adds little and forces one shared trunk to serve both.
+
+**With dense data, simple smoothing is hard to beat.** On observed days the ±15-day mean (`{python} f"{E['observed', '±15-day mean']:.3f}"`) is on par with the networks, helped by the fact that its 31-day window matches the benchmark's. Over a well-observed year at Dongsi, the moving average tracks the level closely, while the network curves follow the seasons but flatten shorter episodes such as the December 2015 peak.
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(14, 3.6), sharey=True)
+for ax, pol in zip(axes, TARGETS):
+    panel(ax, "Dongsi", pol, "2015-03-01", "2016-02-29")
+axes[0].legend(fontsize=7, loc="lower left", ncol=2)
+figure(fig, "dongsi", "Dongsi, both pollutants, one year")
+```
+
+### A bias to fix
+
+```{python}
+bias = res[
+    (res["model"] == "joint")
+    & res["group"].isin(["observed", "unobserved", "long gap"])
+]["bias"].mean()
+```
+
+The network's level sits about `{python} f"{-bias:.2f}"` below the moving average on the log scale (roughly `{python} f"{100 * (1 - np.exp(bias)):.0f}"`%). It is fitted to logs of means over one or two hours, and the log of a mean over few readings is lower on average than the log of a mean over 24 (Jensen's inequality). The usual lognormal correction $+\tfrac12\sigma^2$ overshoots by about as much the other way, because the reading-level spread mixes within-day and between-day variation.
+
+## Lessons learned
+
+- **Mask, don't drop.** Treating a missing target as masked in the loss, instead of discarding the row, is what lets one target fill in for the other. It paid off for an entirely missing series.
+- **Weight by information.** A variance of $\sigma^2/n + \tau^2$ lets a 24-hour mean outweigh a single reading and stops the model chasing day-to-day noise.
+- **Make smoothness explicit.** Smooth time bumps plus a curvature penalty over every day, observed or not, keep the level stable through gaps and at the edges.
+- **Bumps alone don't make a curve smooth where there is no data.** Without the curvature penalty, filling gaps inside the data improves slightly (0.13 vs 0.15), but 15 days past the end the error jumps from 0.25 to 0.5–2.9: the terminal bumps have nothing pinning them down. Training length becomes the only brake, and 1,000 steps instead of 100 nearly doubles the error.
+- **Share across locations with offsets.** A thin station falls back to its area instead of doing nothing.
+- **Know what the network cannot see.** Pollution across Beijing moves together day to day because the weather is citywide. Moving averages pick that up from same-day readings; the network's only notion of time is a smooth curve. A shared day-level effect is the obvious next step.
+- **Decide the smoothness, don't tune it.** Validated on noisy readings, a weaker penalty always looks slightly better because it follows real short episodes. How smooth the level should be is a choice about what the level *means*. Freeze it and let cross-validation pick the rest.
+- **A mixed-effects GAM is a strong alternative.** Area curves with station deviations shrunk towards them, fitted jointly to both pollutants, beat the network in every group *when the smoothness is set by hand*. Left to REML it follows weekly swings and does much worse. Tuned with the same look-ahead CV as the network, it is pushed to a nearly flat curve and does worse than the network: the CV only checks the 15 days just past the end of the data, where any flexible spline goes wrong, so it picks the stiffest one. The tuning target, not the model, sets the smoothness.
+
+## Try it on your own panel
+
+The model repo holds code and a training recipe rather than trained weights: location embeddings and the time basis are specific to one panel and date range, so you fit it to your own data. Input is long format, one row per location × date × target with data (`station`, `area`, `date`, `pollutant`, `value`, `n`).
+
+```python
+from model import Encoding, fit, predict
+
+CFG = dict(rough=1e5, spacing=30, lr=5e-3, hidden=64, weight_decay=1e-4,
+           station_l2=1e-3, schedule=1000, seed=0)
+
+enc = Encoding.fit(panel, end=panel["date"].max())
+model = fit(enc, enc.wide(panel), CFG, steps=100)  # use=["PM2.5"] for a single-target model
+level = predict(model, enc, enc.grid())             # every location × day, observed or not
+```
+
+`example.py` in the [model repo](https://huggingface.co/prteek/sparse-panel-demo) runs this end to end on a small synthetic panel. Or open the [Space](https://huggingface.co/spaces/prteek/sparse-panel-demo), choose how many readings to keep and which stations to look at, and compare the joint network, single-target networks and the ±15-day mean against the true level.
+
+## References
+
+- Song Chen (2017). *Beijing Multi-Site Air Quality*. UCI Machine Learning Repository. [doi:10.24432/C5RK5G](https://doi.org/10.24432/C5RK5G)
+- Zhang et al. (2017). Cautionary tales on air-quality improvement in Beijing. *Proc. R. Soc. A* 473(2205). [doi:10.1098/rspa.2017.0457](https://doi.org/10.1098/rspa.2017.0457)
+- Paszke et al. (2019). PyTorch: An Imperative Style, High-Performance Deep Learning Library. *NeurIPS 32*.
+- Elfwing, Uchibe & Doya (2018). Sigmoid-weighted linear units for neural network function approximation in reinforcement learning. *Neural Networks* 107. [doi:10.1016/j.neunet.2017.12.012](https://doi.org/10.1016/j.neunet.2017.12.012)
+- Eilers & Marx (1996). Flexible smoothing with B-splines and penalties. *Statistical Science* 11(2). [doi:10.1214/ss/1038425655](https://doi.org/10.1214/ss/1038425655)
+- Wood (2017). *Generalized Additive Models: An Introduction with R*, 2nd ed. CRC. [doi:10.1201/9781315370279](https://doi.org/10.1201/9781315370279)
+
+*This work was developed with AI assistance.*

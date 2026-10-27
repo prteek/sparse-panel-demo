@@ -1,6 +1,6 @@
 """Wait until a Space runs its latest commit; restart it once if the upload didn't start a rebuild.
 
-Usage: python huggingface/wait_for_space.py prteek/sparse-panel-demo [timeout_seconds]
+Usage: python wait_for_space.py prteek/sparse-panel-demo [timeout_seconds]
 """
 import sys
 import time

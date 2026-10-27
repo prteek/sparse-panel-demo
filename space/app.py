@@ -1,6 +1,6 @@
 """Gradio app: compare estimators of a smooth level on sparse, gappy air-quality data.
 
-Reads the tables written by huggingface/dataset/precompute.py: from DATA_DIR if set, else from an outputs/ folder
+Reads the tables written by dataset/precompute.py: from DATA_DIR if set, else from an outputs/ folder
 next to the app (on the Space) or at the repo root (run from the repo), otherwise from the Hugging Face dataset
 HF_DATASET.
 """
@@ -17,8 +17,8 @@ from plotly.subplots import make_subplots
 pio.templates.default = "ggplot2"
 
 HF_DATASET = "prteek/sparse-panel-demo"
-PAPER_URL = "https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing"
-LAMBDA_NAMES = {0.5: "Sparse: ~0.5 hours a day", 1.2: "As in the paper: ~1.2 hours a day", 3.0: "Rich: ~3 hours a day"}
+BLOG_URL = "https://huggingface.co/blog/prteek/sparse-panel-modelling"
+LAMBDA_NAMES = {0.5: "Sparse: ~0.5 hours a day", 1.2: "As in the blog post: ~1.2 hours a day", 3.0: "Rich: ~3 hours a day"}
 LABEL_NOTES = {
     "regular": "Thinned at the global setting, with two 20–60 day gaps per pollutant.",
     "sparse": "Thinned to 40% of the global setting's hours.",
@@ -39,7 +39,7 @@ TRUTH_COLOR = "#2ca02c"  # visible on light and dark themes
 def load() -> dict:
     here = Path(__file__).resolve().parent
     candidates = ([Path(os.environ["DATA_DIR"])] if "DATA_DIR" in os.environ
-                  else [here / "outputs", here.parent.parent / "outputs"])
+                  else [here / "outputs", here.parent / "outputs"])
     root = next((c for c in candidates if c.exists()), None)
     if root is None:
         from huggingface_hub import snapshot_download
@@ -128,7 +128,7 @@ with gr.Blocks(title="Sparse panel demo") as demo:
         "Hourly PM2.5 and PM10 from 12 Beijing monitoring stations are thinned to a few readings a day, with gaps, "
         "and three estimators try to recover the slow underlying level: a **joint network** that models both "
         "pollutants together, the same network fitted to **one pollutant at a time**, and a **±15-day mean** of the "
-        f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [paper]({PAPER_URL})."
+        f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [blog post]({BLOG_URL})."
     )
     with gr.Sidebar():
         gr.Markdown("## Scenario")

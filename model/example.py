@@ -9,7 +9,7 @@ import pandas as pd
 
 from model import TARGETS, Encoding, fit, predict
 
-# Settings chosen by look-ahead cross-validation in the paper
+# Settings chosen by look-ahead cross-validation in the blog post
 CFG = dict(rough=1e5, spacing=30, lr=5e-3, hidden=64, weight_decay=1e-4, station_l2=1e-3, schedule=1000, seed=0)
 STEPS = 100
 

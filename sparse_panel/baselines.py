@@ -1,4 +1,4 @@
-"""The benchmark (31-day MA of the full data) and the simple ±15-day mean estimator, as in the paper."""
+"""The benchmark (31-day MA of the full data) and the simple ±15-day mean estimator, as in the blog post."""
 import numpy as np
 import pandas as pd
 

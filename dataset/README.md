@@ -25,7 +25,7 @@ configs:
 
 # Sparse panel demo (Beijing air quality)
 
-Precomputed scenarios behind the [sparse-panel-demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo) (code: [GitHub](https://github.com/prteek/sparse-panel-modelling)), which accompanies the paper [PM2.5, PM10 ~ Station + Time, Analysis](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing) on alphaXiv.
+Precomputed scenarios behind the [sparse-panel-demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo) (code: [GitHub](https://github.com/prteek/sparse-panel-modelling)), which accompanies the blog post [Smooth Levels from Sparse, Gappy Panels](https://huggingface.co/blog/prteek/sparse-panel-modelling).
 
 Daily PM2.5 and PM10 at 12 Beijing monitoring stations (March 2013 – February 2017) are thinned to a few hourly readings a day, with gaps, and three estimators try to recover the slow underlying level:
 
@@ -60,7 +60,7 @@ Random draws are fixed per cell across scenarios, so a higher `lam` keeps a supe
 | `predictions.parquet` | 315,576 | station, date, pollutant, pred, lam, estimator |
 | `metrics.parquet` | 315 | lam, label, pollutant, estimator, day_type, days, error, bias |
 
-`error` is the mean absolute log error against the 31-day MA (0.15 ≈ 15%), `bias` the mean log error. `day_type` is `all`, `observed` (a reading that day), `unobserved` (no reading, outside the gaps) or `gap`. For the `dropped series` label, `pollutant` is `dropped` and only the dropped series is scored. `meta.json` records the network settings (from look-ahead CV in the paper: curvature penalty 1e5, 30-day bump spacing, 100 steps).
+`error` is the mean absolute log error against the 31-day MA (0.15 ≈ 15%), `bias` the mean log error. `day_type` is `all`, `observed` (a reading that day), `unobserved` (no reading, outside the gaps) or `gap`. For the `dropped series` label, `pollutant` is `dropped` and only the dropped series is scored. `meta.json` records the network settings (from look-ahead CV in the blog post: curvature penalty 1e5, 30-day bump spacing, 100 steps).
 
 Reproduce with `uv run python precompute.py` in the GitHub repo (~30 s on a laptop CPU).
 

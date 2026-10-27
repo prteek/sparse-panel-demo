@@ -5,8 +5,8 @@ on:
     branches: [main]
     paths:
       - sparse_panel/model.py
-      - huggingface/model/**
-      - huggingface/publish.sh
+      - model/**
+      - publish.sh
       - .github/workflows/publish-model.yml
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
       - name: Run the model card's example as published (model.py next to example.py)
         run: |
           mkdir smoke
-          cp sparse_panel/model.py huggingface/model/example.py smoke/
+          cp sparse_panel/model.py model/example.py smoke/
           cd smoke && python example.py
       - name: Upload to the model repo
-        run: huggingface/publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" model
+        run: ./publish.sh "Deploy ${GITHUB_SHA::7} from GitHub" model

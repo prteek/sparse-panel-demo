@@ -17,8 +17,8 @@ datasets:
 
 A small PyTorch network that estimates a smooth **prevailing level** for every location and day of a panel,
 for two related quantities at once, when the observations are noisy daily means with long gaps and some series
-missing entirely. It was developed for the paper
-[PM2.5, PM10 ~ Station + Time, Analysis](https://www.alphaxiv.org/abs/2610.pm25-pm10-joint-smoothing) on alphaXiv and powers the
+missing entirely. It was developed for the blog post
+[Smooth Levels from Sparse, Gappy Panels](https://huggingface.co/blog/prteek/sparse-panel-modelling) and powers the
 [sparse panel demo Space](https://huggingface.co/spaces/prteek/sparse-panel-demo).
 
 **This repo holds the code and the training recipe, not trained weights.** The network learns an embedding for
@@ -61,7 +61,7 @@ only: a missing target is **masked**, not dropped. Added to it:
 ## Training recipe
 
 Full-batch Adam with a cosine learning-rate schedule. The settings below were chosen by look-ahead
-cross-validation in the paper:
+cross-validation in the blog post:
 
 | Setting | Value |
 |---|---|
@@ -105,15 +105,15 @@ level = predict(model, enc, enc.grid())   # every location x day, observed or no
 - **Not transferable.** Location embeddings and the time basis are specific to one panel and date range. Refit
   for new locations or dates.
 - **Smoothness is a choice.** Cross-validation that scores against noisy readings rewards following short
-  episodes, so it tends to under-smooth; the paper discusses this. Treat `rough` and `spacing` as decisions about
+  episodes, so it tends to under-smooth; the blog post discusses this. Treat `rough` and `spacing` as decisions about
   how smooth the level should be.
 - **Log-scale bias.** The model is fitted to logs of means over few readings, so its level sits slightly below a
   moving average of full data (Jensen's inequality).
-- **A GAM is a strong alternative.** In the paper, a mixed-effects GAM with hand-set smoothness does as well or
+- **A GAM is a strong alternative.** In the blog post, a mixed-effects GAM with hand-set smoothness does as well or
   better.
 - **Memory.** Training is full batch and the penalty covers every location × day, so memory grows with panel size.
 
-## Data used in the paper
+## Data used in the blog post
 
 Beijing Multi-Site Air Quality, Song Chen (2017), UCI Machine Learning Repository,
 [doi:10.24432/C5RK5G](https://doi.org/10.24432/C5RK5G), CC BY 4.0. The demo's sparse readings and predictions

@@ -2922,14 +2922,14 @@ app = [
     { name = "huggingface-hub" },
     { name = "plotly" },
 ]
-dev = [
-    { name = "pytest" },
-]
-paper = [
+blog = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "pyyaml" },
     { name = "seaborn" },
+]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -2947,13 +2947,13 @@ app = [
     { name = "huggingface-hub", specifier = ">=0.30" },
     { name = "plotly", specifier = ">=5.24" },
 ]
-dev = [{ name = "pytest", specifier = ">=8" }]
-paper = [
+blog = [
     { name = "jupyter", specifier = ">=1.1" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "seaborn", specifier = ">=0.13" },
 ]
+dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "stack-data"

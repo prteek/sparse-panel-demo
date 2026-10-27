@@ -1,7 +1,7 @@
 [project]
 name = "sparse-panel-modelling"
 version = "0.1.0"
-description = "Smooth levels from sparse, gappy panels (Beijing air quality): paper, shared library and Hugging Face artefacts"
+description = "Smooth levels from sparse, gappy panels (Beijing air quality): blog post, shared library and Hugging Face artefacts"
 requires-python = ">=3.13"
 # the shared library (sparse_panel): data preparation, model, baselines and CV runs
 dependencies = [
@@ -13,14 +13,14 @@ dependencies = [
 ]
 
 [dependency-groups]
-# the Gradio Space (huggingface/space)
+# the Gradio Space (space)
 app = [
     "gradio>=6.30.0",
     "huggingface-hub>=0.30",
     "plotly>=5.24",
 ]
-# rendering the Quarto paper (paper/)
-paper = [
+# rendering the Quarto blog post (blog)
+blog = [
     "jupyter>=1.1",
     "matplotlib>=3.9",
     "pyyaml>=6.0",
@@ -29,7 +29,7 @@ paper = [
 dev = ["pytest>=8"]
 
 [tool.uv]
-default-groups = ["app", "paper", "dev"]
+default-groups = ["app", "blog", "dev"]
 
 [build-system]
 requires = ["hatchling"]

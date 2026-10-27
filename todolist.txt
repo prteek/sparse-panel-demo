@@ -1,12 +1,18 @@
 Publish:
+  ☐ Publish the article at huggingface.co/blog/prteek/sparse-panel-modelling (render index.qmd, paste the .md, upload assets/ figures)
   ☐ First CI run: merge to main and check the three publish workflows (HF_TOKEN set by the user)
 
 Migration:
   ☐ Delete posts/beijing_air_quality from regression_room once every post has its own repo (keep regression_room until the last)
 
+Model:
+  ☐ Fix the low bias (−0.13 log): model hour-level log values directly, or estimate the correction from n
+  ☐ Add a shared citywide daily effect (same-day correlation across stations is 0.95), check gains on observed and unobserved days; re-run the blog post (simple same-day averages beat the network on dense days and the dropped series)
+  ☐ Optionally widen the CV grid (roughness 1e6, 25/50 steps): current best is at the grid edge
+
 Backlog:
   ☐ Add the GAM as a fourth estimator: rebuild the mgcv scripts (area curves + station factor-smooth deviations, hand-picked k/4) and add them to precompute.py (needs R offline only)
-  ☐ Investigate why the joint network loses to the ±15-day mean on dropped series (0.173 vs 0.148 at λ = 1.2) when it won in the paper
+  ☐ Investigate why the joint network loses to the ±15-day mean on dropped series (0.173 vs 0.148 at λ = 1.2) when it won in the blog post
   ☐ Reshuffle labels: precompute a few label seeds and add a control to switch between them
 
 Archive:
@@ -23,3 +29,10 @@ Archive:
   ✔ Write app.py (group view, error table by day type, error vs thinning chart) @done(26-10-26)
   ✔ Precompute 3 thinning levels (9 fits in ~30 s, 3.6 MB of outputs) @done(26-10-26)
   ✔ Port data prep with station labels and label-dependent thinning @done(26-10-26)
+  ✔ Tried station hold-out CV (one station per area hidden, 24 folds): picks no penalty, tracks 2–3 week episodes; reverted to every-station-hidden CV and explained the choice in the post @done(26-10-09)
+  ✔ Switch tuning to sequential 15-day look-ahead time-series CV (12 folds); rerun evaluate/plots; rewrite post around single-target ≥ joint except for a dropped series @done(26-10-09)
+  ✔ Write and render index.qmd: problem, model, tuning, experiment with a dropped series (Dingling PM10) and a very sparse station (Huairou 15%) @done(26-10-08)
+  ✔ Final evaluation and plots vs ground truth (gap blocks: joint 0.166/0.168 vs single 0.209/0.193 vs ±15-day 0.384/0.401) @done(26-10-08 19:00)
+  ✔ Gap-filling CV, 12 settings × 3 splits (best: roughness 100, 15-day spacing, 300 steps; 0.188 vs true level) @done(26-10-08 18:59)
+  ✔ Time-series CV, 5 folds, 3-month validation (best 0.906 vs trailing mean 0.929; forecasting dominated by weather) @done(26-10-08 18:55)
+  ✔ Download data and build full / sparse daily datasets (both observed 44%, 1.7 hours per observed day) @done(26-10-08)
