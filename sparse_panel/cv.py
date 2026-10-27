@@ -17,7 +17,7 @@ import pandas as pd
 import torch
 
 from sparse_panel.baselines import smooth_truth
-from sparse_panel.data import prepare_paper_data
+from sparse_panel.data import prepare_blog_data
 from sparse_panel.model import KEY, TARGETS, Encoding, fit, predict
 from sparse_panel.paths import DATA, RESULTS
 
@@ -30,7 +30,7 @@ FIXED = dict(lr=5e-3, hidden=64, weight_decay=1e-4, station_l2=1e-3, schedule=ma
 
 
 def load():
-    prepare_paper_data()
+    prepare_blog_data()
     sparse = pd.read_parquet(DATA / "daily_sparse.parquet")
     full = pd.read_parquet(DATA / "daily_full.parquet")
     return sparse, full

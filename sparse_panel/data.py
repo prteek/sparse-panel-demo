@@ -1,7 +1,7 @@
 """Beijing multi-site air quality data: download, daily means, and the two ways of thinning it to sparse readings.
 
-- Blog post (`prepare_paper_data`, `thin_uniform`): every station and pollutant keeps a Poisson(PAPER_LAMBDA) random subset
-  of its valid hours per day, plus PAPER_GAP_BLOCKS runs of 20-60 empty days. Writes data/daily_full.parquet,
+- Blog post (`prepare_blog_data`, `thin_uniform`): every station and pollutant keeps a Poisson(BLOG_LAMBDA) random subset
+  of its valid hours per day, plus BLOG_GAP_BLOCKS runs of 20-60 empty days. Writes data/daily_full.parquet,
   data/daily_sparse.parquet and data/gaps.parquet, which the blog post and its CV scripts read.
 - Demo (`assign_labels`, `thin_by_label`): every station gets one label, which decides how its readings are thinned
   relative to the global setting `lam` (Poisson mean of hours kept per station-day and pollutant):
@@ -71,22 +71,22 @@ def daily(hourly: pd.DataFrame) -> pd.DataFrame:
     return out.assign(area=out["station"].map(AREA))
 
 
-# ---- paper: uniform thinning ----------------------------------------------------------------------------------------
+# ---- blog post: uniform thinning -------------------------------------------------------------------------------------
 
-PAPER_LAMBDA = 1.2
-PAPER_GAP_BLOCKS, PAPER_GAP_MIN, PAPER_GAP_MAX = 2, 20, 60
-# The order the station files were stacked in when the paper's sparse data was drawn (the original code took
-# glob's filesystem order). The shuffle below depends on it, so it is pinned to reproduce the paper exactly.
-PAPER_STATION_ORDER = ["Gucheng", "Huairou", "Tiantan", "Changping", "Guanyuan", "Nongzhanguan", "Wanliu", "Dongsi",
+BLOG_LAMBDA = 1.2
+BLOG_GAP_BLOCKS, BLOG_GAP_MIN, BLOG_GAP_MAX = 2, 20, 60
+# The order the station files were stacked in when the blog post's sparse data was drawn (the original code took
+# glob's filesystem order). The shuffle below depends on it, so it is pinned to reproduce the blog post exactly.
+BLOG_STATION_ORDER = ["Gucheng", "Huairou", "Tiantan", "Changping", "Guanyuan", "Nongzhanguan", "Wanliu", "Dongsi",
                        "Wanshouxigong", "Aotizhongxin", "Dingling", "Shunyi"]
 
 
 def thin_uniform(hourly: pd.DataFrame, rng):
-    """Keep a Poisson(PAPER_LAMBDA) random subset of valid hours per station x day x pollutant, then cut gap blocks."""
+    """Keep a Poisson(BLOG_LAMBDA) random subset of valid hours per station x day x pollutant, then cut gap blocks."""
     long = hourly.melt(id_vars=["station", "date", "hour"], value_vars=POLLUTANTS, var_name="pollutant").dropna()
     long = long.sample(frac=1, random_state=SEED)  # random order within each cell
     keys = long[["station", "date", "pollutant"]].drop_duplicates()
-    keys["k"] = rng.poisson(PAPER_LAMBDA, len(keys))
+    keys["k"] = rng.poisson(BLOG_LAMBDA, len(keys))
     long = long.merge(keys, on=["station", "date", "pollutant"])
     long["rank"] = long.groupby(["station", "date", "pollutant"]).cumcount()
     kept = long[long["rank"] < long["k"]]
@@ -95,8 +95,8 @@ def thin_uniform(hourly: pd.DataFrame, rng):
     gaps = []
     for st in sorted(hourly["station"].unique()):
         for pol in POLLUTANTS:
-            for _ in range(PAPER_GAP_BLOCKS):
-                length = rng.integers(PAPER_GAP_MIN, PAPER_GAP_MAX + 1)
+            for _ in range(BLOG_GAP_BLOCKS):
+                length = rng.integers(BLOG_GAP_MIN, BLOG_GAP_MAX + 1)
                 start = rng.integers(0, len(days) - length)
                 gaps.append(pd.DataFrame({"station": st, "pollutant": pol, "date": days[start:start + length]}))
     gaps = pd.concat(gaps).drop_duplicates().assign(in_gap=True)
@@ -106,11 +106,11 @@ def thin_uniform(hourly: pd.DataFrame, rng):
     return out.assign(area=out["station"].map(AREA)), gaps.drop(columns="in_gap")
 
 
-def prepare_paper_data(data_dir: Path = DATA, force: bool = False) -> None:
-    """Write daily_full, daily_sparse and gaps parquet files for the paper (skipped if they exist)."""
+def prepare_blog_data(data_dir: Path = DATA, force: bool = False) -> None:
+    """Write daily_full, daily_sparse and gaps parquet files for the blog post (skipped if they exist)."""
     if not force and (data_dir / "daily_sparse.parquet").exists():
         return
-    hourly = load_hourly(download(data_dir), station_order=PAPER_STATION_ORDER)
+    hourly = load_hourly(download(data_dir), station_order=BLOG_STATION_ORDER)
     full = daily(hourly)
     sparse, gaps = thin_uniform(hourly, np.random.default_rng(SEED))
     full.to_parquet(data_dir / "daily_full.parquet", index=False)
@@ -205,6 +205,6 @@ def thin_by_label(hourly: pd.DataFrame, lam: float, labels: pd.DataFrame, seed: 
 
 
 if __name__ == "__main__":
-    prepare_paper_data(force=True)
+    prepare_blog_data(force=True)
     sparse = pd.read_parquet(DATA / "daily_sparse.parquet")
-    print(f"wrote paper data to {DATA}: {len(sparse):,} sparse station-day-pollutant readings")
+    print(f"wrote blog post data to {DATA}: {len(sparse):,} sparse station-day-pollutant readings")

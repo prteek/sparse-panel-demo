@@ -1,16 +1,16 @@
-"""The paper's sparse data must be reproduced exactly: every number in the paper depends on it."""
+"""The blog post's sparse data must be reproduced exactly: every number in the post depends on it."""
 import numpy as np
 import pandas as pd
 import pytest
 
-from sparse_panel.data import CSV_DIR, PAPER_STATION_ORDER, SEED, daily, load_hourly, thin_uniform
+from sparse_panel.data import CSV_DIR, BLOG_STATION_ORDER, SEED, daily, load_hourly, thin_uniform
 from sparse_panel.paths import DATA
 
 pytestmark = pytest.mark.skipif(not (DATA / CSV_DIR).exists(), reason="UCI data not downloaded")
 
 
-def test_paper_sparse_data_is_reproduced():
-    hourly = load_hourly(DATA / CSV_DIR, station_order=PAPER_STATION_ORDER)
+def test_blog_sparse_data_is_reproduced():
+    hourly = load_hourly(DATA / CSV_DIR, station_order=BLOG_STATION_ORDER)
     sparse, gaps = thin_uniform(hourly, np.random.default_rng(SEED))
     assert len(daily(hourly)) == 34955
     assert len(sparse) == 23243

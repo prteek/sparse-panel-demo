@@ -59,7 +59,7 @@ Pushes to `main` publish to Hugging Face through `.github/workflows/` (each can 
   stay exactly the ones fitted and checked locally.
 
 The blog's sparse data depends on the order the station files are stacked in, which is pinned in
-`sparse_panel.data.PAPER_STATION_ORDER`; the test fails if the data stops matching.
+`sparse_panel.data.BLOG_STATION_ORDER`; the test fails if the data stops matching.
 
 Project notes for the blog post, the demo and the repo: `summary.md`, `decisions.md`, `todolist.txt`.
 
