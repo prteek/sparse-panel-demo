@@ -130,13 +130,11 @@ with gr.Blocks(title="Sparse panel demo") as demo:
         "pollutants together, the same network fitted to **one pollutant at a time**, and a **±15-day mean** of the "
         f"readings. The truth is the 31-day moving average of the full data. Method and discussion: [blog post]({BLOG_URL})."
     )
-    with gr.Sidebar():
-        gr.Markdown("## Scenario")
-        lam = gr.Radio([(LAMBDA_NAMES.get(l, str(l)), l) for l in LAMBDAS], value=1.2,
+    with gr.Row(equal_height=True):
+        lam = gr.Radio([(LAMBDA_NAMES.get(l, str(l)), l) for l in LAMBDAS], value=1.2, scale=3,
                        label="Readings kept (Poisson mean hours per station-day)")
-        gr.Markdown("## View")
-        label = gr.Dropdown(list(LABEL_NOTES), value="regular", label="Station group")
-        pollutant = gr.Radio(["PM2.5", "PM10"], value="PM2.5", label="Pollutant")
+        label = gr.Dropdown(list(LABEL_NOTES), value="regular", label="Station group", scale=1)
+        pollutant = gr.Radio(["PM2.5", "PM10"], value="PM2.5", label="Pollutant", scale=1)
     note = gr.Markdown()
     plot = gr.Plot(show_label=False)
     with gr.Row():
